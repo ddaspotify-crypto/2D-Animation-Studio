@@ -46,7 +46,7 @@ describe('Deterministic animation evaluation', () => {
   it('clamps scene time, preserves z-order and camera independently of editor view', () => {
     const scene=getScene(fixture()); scene.animations=[position()];
     expect(evaluateSceneAtTime(scene,-1).time).toBe(0); expect(evaluateSceneAtTime(scene,999).time).toBe(10);
-    expect(evaluateSceneAtTime(scene,3).camera).toEqual({x:960,y:540,zoom:1}); expect(evaluateSceneAtTime(scene,3).layers.map(l=>l.id)).toEqual(['a']);
+    expect(evaluateSceneAtTime(scene,3).camera).toEqual({x:960,y:540,zoom:1,rotation:0}); expect(evaluateSceneAtTime(scene,3).layers.map(l=>l.id)).toEqual(['a']);
   });
 });
 describe('Animation code/schema/persistence', () => {
@@ -68,7 +68,7 @@ describe('Animation code/schema/persistence', () => {
   });
   it('migrates actual Phase 1 projects without losing transforms/assets', () => {
     const project=fixture(); const {animations: ignored,...legacyScene}=getScene(project); void ignored;
-    const migrated=validateProject({...project,schemaVersion:1,scenes:[legacyScene]}); expect(migrated.schemaVersion).toBe(2); expect(getScene(migrated).animations).toEqual([]); expect(getScene(migrated).layers).toEqual(legacyScene.layers);
+    const migrated=validateProject({...project,schemaVersion:1,scenes:[legacyScene]}); expect(migrated.schemaVersion).toBe(4); expect(getScene(migrated).animations).toEqual([]); expect(getScene(migrated).layers).toEqual(legacyScene.layers);
   });
 });
 describe('Keyframe editing/history and playback separation', () => {

@@ -28,12 +28,14 @@ export const animationHelp = {
   codeTime: 'scene.animate khai báo chuyển động cho ID của Layer. Keyframe time trong code tính từ startTime: startTime = 2, key time = 1 thì hình thoi nằm ở giây 3 trên Timeline. Bấm Apply Code để cập nhật; code chưa Apply chưa được lưu.',
 };
 export const trackHelp: Record<AnimationProperty, string> = {
+  zOrder:'Z-order đổi thứ tự trước/sau tức thời tại keyframe, không nội suy. Số lớn hơn ở phía trước; không thay đổi Parent–Child. Thêm các mốc để ảnh đi sau vật thể rồi xuất hiện phía trước.',
   position: 'Move / Position = di chuyển. Đặt Key x/y ở mốc đầu và cuối: X tăng đi sang phải, Y tăng đi xuống. Ví dụ x=200 đến x=900 trong 4 giây. Thêm key giữa để đổi vị trí ở các mốc khác.',
   scale: 'Scale = phóng to/thu nhỏ. Key scaleX điều khiển chiều ngang, scaleY điều khiển chiều dọc: 1 là kích thước gốc, 2 gấp đôi, 0.5 một nửa. Đặt cả hai bằng nhau để giữ tỉ lệ. Chỉ dùng số lớn hơn 0.',
   rotation: 'Rotate = xoay quanh Pivot. Đặt Key rotation theo độ: 0→360 quay một vòng cùng chiều kim đồng hồ, 0→−360 quay ngược, 0→720 quay hai vòng. Chọn Pivot 0.5/0.5 nếu muốn xoay quanh tâm ảnh.',
   opacity: 'Fade / Opacity = hiện/mờ dần. Key opacity từ 0→1 để hiện dần, 1→0 để biến mất; 0.5 là 50% độ rõ. Nếu ảnh mờ hết và khó click, chọn lại từ danh sách Layers.',
 };
 export const valueHelp: Record<string, string> = {
+  zOrder:'Thứ tự trước/sau tại key đang chọn: số nguyên từ 0 tới 500, số lớn hơn ở phía trước. Giá trị giữ nguyên đến key tiếp theo; các Layer cùng giá trị giữ thứ tự tĩnh.',
   x: 'Vị trí ngang ở key đang chọn. Tăng X để đi sang phải. Đặt X khác nhau ở hai key để tạo chuyển động ngang; đây là tọa độ Pivot của ảnh.',
   y: 'Vị trí dọc ở key đang chọn. Tăng Y để đi xuống, giảm Y để đi lên. Kết hợp với X để di chuyển theo cả hai hướng.',
   scaleX: 'Hệ số chiều ngang ở key đang chọn. 1 = giữ kích thước gốc, 2 = gấp đôi, 0.5 = một nửa. Đặt scaleY giống scaleX để giữ tỉ lệ ảnh; chỉ nhận số dương.',

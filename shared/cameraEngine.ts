@@ -1,0 +1,3 @@
+import type {Camera,Scene} from './model.js';
+export function cameraProjection(scene:Pick<Scene,'width'|'height'>,camera:Pick<Camera,'x'|'y'|'zoom'>&{rotation?:number}){const rotation=-(camera.rotation??0),r=rotation*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return {x:scene.width/2-(camera.x*c-camera.y*s)*camera.zoom,y:scene.height/2-(camera.x*s+camera.y*c)*camera.zoom,zoom:camera.zoom,rotation};}
+export function cameraFrame(scene:Pick<Scene,'width'|'height'>,camera:Pick<Camera,'x'|'y'|'zoom'>){return {x:camera.x-scene.width/(2*camera.zoom),y:camera.y-scene.height/(2*camera.zoom),width:scene.width/camera.zoom,height:scene.height/camera.zoom};}

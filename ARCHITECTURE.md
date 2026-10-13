@@ -1,6 +1,6 @@
 # 2D Animation Studio — kiến trúc và phạm vi
 
-Hai đầu vào là `REQUIREMENTS.md` và `CODE_EDITOR.md`. Tài liệu bổ sung mở rộng editor bằng biểu diễn JavaScript khai báo, không thay thế workflow trực quan. Hiện đã triển khai Phase 1 và Phase 2; Motion Path/Pose/Binding, camera/multiple scenes, video và packaging vẫn thuộc các phase sau.
+Hai đầu vào là `REQUIREMENTS.md` và `CODE_EDITOR.md`. Tài liệu bổ sung mở rộng editor bằng biểu diễn JavaScript khai báo, không thay thế workflow trực quan. Hiện đã triển khai Phase 1–4 trong bản local 0.4.0/schema v4, gồm camera và multiple scenes. Video và packaging thuộc Phase 5–6. Các mục Phase 1–3 dưới đây mô tả lịch sử triển khai; phần Phase 4 ghi kiến trúc hiện tại.
 
 ## Luồng dữ liệu
 
@@ -54,9 +54,24 @@ Timeline có ruler, scrub/click/drag playhead, zoom/scroll, layer tracks thu g�
 
 Generator sinh `scene.animate(layerId, options)`; AST parser chấp nhận arrays/literals và hai API addImage/animate. ID/timing/easing/loop có thể bỏ trong code: ID sinh ổn định theo thứ tự câu lệnh, start=0, duration=key cuối (tối thiểu .001s), easing=linear, loop=none. Apply validate toàn bộ scene rồi commit một bước Undo và preview tại playhead hiện tại. Các quy tắc giữ draft/conflict Phase 1 giữ nguyên.
 
+## Advanced 2D Motion — Phase 3
+
+Scene v3 thêm motionPaths/poseSets/poseTracks, Layer thêm binding/attachments và Transform thêm skewX tùy chọn cho biểu diễn affine. Animation có property zOrder rời rạc. Z-order vẫn riêng biệt với graph Parent–Child. Validation kiểm tra ID/reference/cycle, radius/point counts, time ranges và pose keys; migration v0/v1/v2 giữ dữ liệu cũ và thêm các danh sách rỗng. Không tự ghi đè file khi chỉ Open.
+
+- `shared/motionPaths.ts`: polyline tessellation, Bézier/circle/ellipse sampling, bảng khoảng cách cache theo object path và binary search vị trí theo arc length xấp xỉ; RDP freehand simplification và giới hạn mốc giữ endpoint.
+- `shared/transforms.ts`: affine multiply/inverse/decompose; Bind Position chỉ nhận translation của điểm gắn, Bind Transform nhận đủ rotation/non-uniform scale (kể cả shear). Attachment theo tọa độ chuẩn hóa 0–1 của ảnh và pivot, do đó theo kích thước pose.
+- `shared/animationEngine.ts`: chọn pose tức thời → các track transform/opacity/zOrder → path position/orientation → resolve hierarchy theo dependency → sort Z-order. Pure evaluation không phụ thuộc thứ tự scrub hoặc Z-order để resolve Parent. Visibility/opacity riêng, không tự kế thừa từ Parent.
+- `src/advanced/commands.ts`: tạo dữ liệu path preset và đổi binding giữ world pose tại playhead, rebase transform/keys/path coordinates; `actions.ts` commit qua store, validation/history/code sync chung.
+- `PathOverlay`: editor-only đường/mốc/Bézier handles/attachment markers, chuyển world↔binding-local khi drag. `MotionPathPanel`, `PosePanel`, `BindingPanel` và `AdvancedTimelineRows` cung cấp UI/tooltip tiếng Việt và thời gian/geometry edits.
+- Canvas renderer dùng image cache đã preload, đổi image/size/pivot theo pose và thứ tự nodes theo evaluated Z-order; không tạo lại image nodes mỗi frame. Shapes overlay nằm ở Konva layer riêng, không thuộc dữ liệu đầu ra.
+
+Path ưu tiên Position sau start; Orient cộng góc tangent/direction với rotation riêng, có xét reverse và Ping Pong. Pose key time toàn scene; Animation key time tương đối startTime. Các hệ thống Scale/Rotate/Fade/Pose/Path/Bind chạy cùng nhau. Đổi Duration path không thay geometry; đổi binding giữ hình tại playhead hiện tại, có thể thay chuyển động ở thời điểm khác do hệ tọa độ thay đổi. Xóa Parent detach Child; Child khóa phải mở khóa trước.
+
+API AST mới: motionPath/poseSet/poseTrack/bind. Generator round-trip cả graph/pose/path/attachments; không thực thi code tùy ý. Các schema v1/v2 sau migration được đánh giá bằng cùng evaluator v3. Camera trong kết quả hiện vẫn tĩnh, export tiếp tục dự kiến dùng evaluator này ở Phase 5.
+
 ## Các module ở những phase sau
 
-Animation/Keyframe đã có trong schema v2. Các contract MotionPath/PoseSet/Camera/AttachmentPoint/Binding chưa được đưa vào persisted schema; không tạo nút export hoặc animation camera giả.
+Animation/Keyframe có từ v2, MotionPath/PoseSet/PoseTrack/AttachmentPoint/Binding đã có trong schema v3. Camera animation chưa được đưa vào persisted schema; không tạo nút export hoặc animation camera giả.
 
 - Animation Engine: module thuần, `evaluateSceneAtTime(scene, t)`, không phụ thuộc React/Konva/DOM; tính theo timestamp. Kết quả gồm layer state và output camera. Preview và Export dùng **cùng hàm này**.
 - Timeline Engine: dữ liệu track/keyframes và bộ điều khiển playback riêng; `requestAnimationFrame` không cập nhật toàn bộ editor store mỗi frame. Scrub đánh giá trực tiếp tại t.
@@ -67,7 +82,7 @@ Animation/Keyframe đã có trong schema v2. Các contract MotionPath/PoseSet/Ca
 
 Z-order hiện tại là thứ tự `scene.layers` từ sau ra trước. Parent–Child sau này là graph riêng qua ID, validate cycle; không dùng vị trí trong layer array làm quan hệ cha con. Kết hợp animation nhiều thuộc tính, pose và binding trước camera/output.
 
-## Persistence Phase 1–2
+## Persistence Phase 1–3
 
 ```text
 <root người dùng chọn>/
@@ -111,6 +126,26 @@ Import tuần tự bất đồng bộ; PNG/JPEG/WebP, ≤64 MB/ảnh, ≤16384 p
 Đây là phân bổ phạm vi, không phải tuyên bố các phase sau đã hoàn thành. MP4 là mục tiêu bắt buộc Phase 5. Timeline và preview animation đã có ở Phase 2; các lệnh path/pose/bind/camera vẫn trả lỗi rõ ràng.
 
 ## Dependencies và kiểm thử
+
+### Phase 4 — Camera và nhiều Scene
+
+Project schema v4 có 1–100 scenes, camera base và hai track position/zoom cho mỗi scene. Migration v1/v2/v3 thêm camera centered mà không ghi disk trước Save. Shared evaluator trả Camera theo cùng timestamp/easing/loop với layers; `cameraProjection` / `cameraFrame` dùng công thức tâm camera và zoom cho output hoặc khung editor. Output renderer không dùng editor view transform và không vẽ guides/handles.
+
+Bổ sung camera rotation: base default 0° cho file v4 trước đó, track thứ ba `rotation` với nội suy góc không normalize về đoạn ngắn (0→360 giữ trọn vòng). Output dùng phép quay nghịch đảo quanh camera center; khung editor và handle zoom xét cùng góc. Ghi Pan theo Layer là thao tác key tại playhead, dùng world-space điểm bám/tâm ảnh; không thêm automatic follow constraint.
+
+Editor transaction cập nhật scene hiện tại, bảo toàn scene khác; CRUD scene có transaction riêng. Duplicate remap graph/poses/group/camera IDs nhưng không offset. History toàn project, scene navigation không thêm Undo; drafts/time riêng theo scene là session state. Global asset delete dọn tham chiếu mọi scene trước commit. DSL camera/cameraAnimate chỉ áp dụng scene hiện tại. Phase 5 sẽ dùng shared evaluator/projection cho deterministic export; chưa có export implementation ở Phase 4.
+
+### Animation Library
+
+Định dạng dữ liệu riêng `studio-animation` v1 trong `shared/animationLibrary.ts`, không thay project schema v3. `animationPresets.ts` cung cấp 14 mẫu. `motionTemplates.ts` chuyển track thành các delta/ratio theo role và instantiate bằng baseline local tại startTime; không đổi binding/Pivot. Path lưu hình học tương đối, Pose lưu asset slots thay ID ảnh project. Apply dùng transaction hiện có, một bước Undo; project lưu kết quả độc lập với Library.
+
+`AnimationLibraryRepository` lưu JSON dùng chung ngoài thư mục projects, kiểm tra schema/ID, giới hạn file, tránh symlink và overwrite. API `/api/animation-library` GET/POST/DELETE chỉ chấp nhận local origin, mutation yêu cầu X-Studio-Request. UI lazy load Library; Preview có project snapshot và renderer riêng, không commit hoặc dùng playback store của project. Import chỉ là dữ liệu JSON, không eval.
+
+### Bổ sung Phase 3 theo yêu cầu người dùng
+
+Group/clipboard/context menu Asset được đưa lên Phase 3, thay cho lịch dự kiến Phase 6 trong bảng ban đầu. `Scene.groups?` lưu ID/tên nhóm; `Layer.groupId?` lưu membership, không thêm Transform/Parent cho thư mục. DSL thêm `scene.group({id,name,layerIds})`. Schema kiểm tra group refs và IDs; nhóm một cấp.
+
+`cloneLayers.ts` là luồng chung Duplicate/Paste, remap IDs/graph, dịch một lần ở root và clone Pose Sets độc lập. `workspaceStore.ts` theo vùng thao tác; `clipboard.ts` giữ snapshot nội bộ theo project, không can thiệp clipboard văn bản. Timeline selection thêm kind animation/path/pose và hiển thị viền. `removeAsset.ts` dọn layers/poses/keys, tháo binding Child sống sót và dùng transaction Undo/Redo. Asset Properties chỉ sửa metadata project; không xóa ảnh gốc.
 
 Các dependency được lấy từ `latest` tại thời điểm triển khai và pin exact version, kèm `package-lock.json`. Ví dụ `4.0.12 → 4.23.1` trong yêu cầu được hiểu là chỉ cập nhật minor/patch trong cùng **major**, không tự nâng major. Production build bundle Monaco và workers local, không cần CDN.
 

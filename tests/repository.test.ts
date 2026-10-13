@@ -51,8 +51,8 @@ describe('Project local persistence', () => {
     const project = createProject(); const {animations, ...scene} = project.scenes[0]; void animations;
     const legacy = {...project, schemaVersion: 1, scenes: [scene]};
     await fs.mkdir(path.join(root, 'Legacy')); await fs.writeFile(path.join(root, 'Legacy', 'project.json'), JSON.stringify(legacy));
-    const loaded = await repository.load('Legacy'); expect(loaded.schemaVersion).toBe(2); expect(loaded.scenes[0].animations).toEqual([]);
+    const loaded = await repository.load('Legacy'); expect(loaded.schemaVersion).toBe(4); expect(loaded.scenes[0].animations).toEqual([]);
     expect(JSON.parse(await fs.readFile(path.join(root, 'Legacy', 'project.json'), 'utf8')).schemaVersion).toBe(1);
-    await repository.save('Legacy', loaded, [], false); expect(JSON.parse(await fs.readFile(path.join(root, 'Legacy', 'project.json'), 'utf8')).schemaVersion).toBe(2);
+    await repository.save('Legacy', loaded, [], false); expect(JSON.parse(await fs.readFile(path.join(root, 'Legacy', 'project.json'), 'utf8')).schemaVersion).toBe(4);
   });
 });

@@ -1,10 +1,18 @@
-# 2D Animation Studio — Phase 2
+# 2D Animation Studio — Phase 4
 
 Ứng dụng local trên Windows: bố trí và tạo animation qua Canvas/Timeline hoặc JavaScript khai báo. Đọc [ARCHITECTURE.md](ARCHITECTURE.md) để xem kiến trúc và phân bổ toàn bộ yêu cầu của hai tài liệu theo từng phase.
 
 **Hướng dẫn từng chức năng:** [HƯỚNG DẪN SỬ DỤNG PHASE 1 VÀ PHASE 2](HUONG_DAN_SU_DUNG_PHASE_1_VA_2.md) — các nút, thao tác Canvas/Layer/Properties, Timeline/keyframes/Auto Key, Code Editor và bài thực hành.
 
+**Review Phase 3:** [PHASE3_REVIEW.md](PHASE3_REVIEW.md) — Motion Path/Bézier/Freehand, Pose Switching, Parent–Child/Bind Modes/Attachments, discrete Z-order keys, đồng bộ Code và migration v1/v2→v3. Bản 0.3.0 giữ lại các chức năng Phase 1–2, thêm tooltip tiếng Việt cho tính năng mới. Chưa làm Camera/multiple scenes/MP4.
+
 ## Chạy ứng dụng
+
+**Review Phase 4:** [PHASE4_REVIEW.md](PHASE4_REVIEW.md) — nhiều scenes, Output Camera/Pan/Zoom/keyframes, Camera Preview, Code Editor và Undo/Redo; project schema v4. MP4 tiếp tục ở Phase 5.
+
+**Animation Library:** [ANIMATION_LIBRARY_GUIDE.md](ANIMATION_LIBRARY_GUIDE.md) — 14 presets, lưu chuyển động Layer/Group/Path/Pose, Preview/Apply, thư viện dùng chung và Import/Export mẫu.
+
+**Hoàn thiện Phase 3:** [Group, Asset Properties, chọn Timeline và Ctrl+C/V](PHASE3_GROUP_CLIPBOARD_GUIDE.md). Kiểm thử trình duyệt thêm ở `scripts/phase3-final-smoke.mjs`.
 
 Cần Node.js **22.12+** (đã kiểm tra với 22.23.2) và npm. Trong thư mục project:
 
@@ -92,14 +100,15 @@ Browser smoke cần Playwright có sẵn và Microsoft Edge. Mở production ser
 $env:STUDIO_PLAYWRIGHT_ENTRY = 'C:/Users/17520/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs'
 node scripts/browser-smoke.mjs
 node scripts/animation-smoke.mjs
+node scripts/phase3-smoke.mjs
 ```
 
 Scripts tạo project test với tên `Smoke-<timestamp>` / `Phase2-Smoke-<timestamp>` và screenshot trong `test-results/`; không xóa project người dùng. Chạy browser-smoke trước để tạo fixture ảnh cho animation-smoke. Có thể xóa các project test này sau khi kiểm tra.
 
 ## Phạm vi và giới hạn
 
-- Hoàn thành nền editor/Code sync Phase 1 và animation/keyframes/timeline Phase 2. Một project có một scene; camera, bindings/pose/paths, Z-order keyframes và MP4 chưa triển khai.
-- API Code hỗ trợ `createScene`, `scene.addImage`, `scene.animate`, literal values/arrays; import asset trước khi tham chiếu `asset`. Z-order qua thứ tự khai báo hoặc `zIndex` khác nhau. Không chạy code tùy ý.
+- Hoàn thành nền editor/Code sync Phase 1, animation/keyframes/timeline Phase 2 và Advanced 2D Motion Phase 3. Một project có một scene; camera, multiple scenes và MP4 chưa triển khai.
+- API Code hỗ trợ `createScene`, `scene.addImage`, `scene.animate`, `motionPath`, `poseSet`, `poseTrack`, `bind`, literal values/arrays; import asset trước khi tham chiếu `asset`. Z-order nền qua thứ tự khai báo hoặc `zIndex`; chuyển thứ tự theo thời gian dùng `property: "zOrder"`. Không chạy code tùy ý.
 - History tối đa 50 bước. Không có autosave ở phase này. Copy/paste keyframes qua nút đã có; copy/paste Layer, group/ungroup, snapping/alignment/context menu và toàn bộ shortcut chờ Phase 6.
 - Timeline zoom/scroll/collapse và panel resize đã có. Chưa kiểm tra stress-test với 500 Layer/2000 tracks hoặc hàng triệu keyframe; engine không render lại toàn bộ editor mỗi frame.
 - Panel resize bằng mép/góc resize của panel. UI dành cho desktop rộng ≥1000px.
@@ -107,4 +116,4 @@ Scripts tạo project test với tên `Smoke-<timestamp>` / `Phase2-Smoke-<times
 - Import ≤64 MB/ảnh, ≤64 megapixel; upload project ≤256 MB. Các project nhiều ảnh lớn cần streaming/optimization trong Phase 6.
 - Build có thể cảnh báo kích thước chunk Monaco; đã lazy-load panel và chỉ bundle JavaScript language cùng worker local.
 
-Chưa triển khai Phase 3–6. Kiểm tra Phase 2 trước khi tiếp tục.
+Chưa triển khai Phase 4–6. Kiểm tra Phase 3 trước khi tiếp tục. Chưa commit/push các thay đổi Phase 3, theo yêu cầu review local.

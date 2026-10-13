@@ -18,11 +18,19 @@ import { animationHelp } from './animationHelp';
 self.MonacoEnvironment = {getWorker(_moduleId, label) {return label === 'javascript' || label === 'typescript' ? new TypeScriptWorker() : new EditorWorker();}};
 typescript.javascriptDefaults.setDiagnosticsOptions({noSemanticValidation: false, noSyntaxValidation: false});
 typescript.javascriptDefaults.addExtraLib(`
-interface SceneOptions {id?: string; name?: string; width: number; height: number; fps: number; duration: number; background?: string}
-interface ImageOptions {id: string; asset: string; name?: string; x?: number; y?: number; width?: number; height?: number; scale?: number; scaleX?: number; scaleY?: number; rotation?: number; opacity?: number; visible?: boolean; locked?: boolean; anchorX?: number; anchorY?: number; zIndex?: number}
-interface KeyframeOptions {id?: string; time: number; easing?: 'linear'|'easeIn'|'easeOut'|'easeInOut'; x?: number; y?: number; scaleX?: number; scaleY?: number; rotation?: number; opacity?: number}
-interface AnimationOptions {id?: string; property: 'position'|'scale'|'rotation'|'opacity'; startTime?: number; duration?: number; easing?: 'linear'|'easeIn'|'easeOut'|'easeInOut'; loop?: 'none'|'repeat'|'pingPong'; keyframes: KeyframeOptions[]}
-declare function createScene(options: SceneOptions): {addImage(options: ImageOptions): void; animate(layerId: string, options: AnimationOptions): void};
+interface SceneOptions {groups?:{id:string;name:string}[];id?: string; name?: string; width: number; height: number; fps: number; duration: number; background?: string}
+interface ImageOptions {id: string; asset: string; name?: string; x?: number; y?: number; width?: number; height?: number; scale?: number; scaleX?: number; scaleY?: number; rotation?: number; opacity?: number; visible?: boolean; locked?: boolean; anchorX?: number; anchorY?: number; zIndex?: number; flipX?: boolean; flipY?: boolean}
+interface KeyframeOptions {id?: string; time: number; easing?: 'linear'|'easeIn'|'easeOut'|'easeInOut'; x?: number; y?: number; scaleX?: number; scaleY?: number; rotation?: number; opacity?: number;zOrder?:number}
+interface AnimationOptions {id?: string; property: 'position'|'scale'|'rotation'|'opacity'|'zOrder'; startTime?: number; duration?: number; easing?: 'linear'|'easeIn'|'easeOut'|'easeInOut'; loop?: 'none'|'repeat'|'pingPong'; keyframes: KeyframeOptions[]}
+interface PathPoint {x:number;y:number;in?:{x:number;y:number};out?:{x:number;y:number}}
+interface MotionPathOptions {id:string;type:'line'|'polyline'|'bezier'|'circle'|'ellipse'|'freehand';points:PathPoint[];followPoint?:{x:number;y:number};startTime:number;duration:number;easing:'linear'|'easeIn'|'easeOut'|'easeInOut';loop:'none'|'repeat'|'pingPong';reverse:boolean;orientToPath:boolean;show:boolean}
+interface PoseSetOptions {id:string;name:string;poses:{id:string;name:string;assetId:string;width:number;height:number;anchorX:number;anchorY:number}[]}
+interface PoseTrackOptions {id:string;poseSetId:string;keyframes:{id:string;time:number;poseId:string}[]}
+interface BindingOptions {parentId:string;mode:'position'|'transform';attachmentId?:string}
+interface CameraOptions {x:number;y:number;zoom:number;rotation?:number}
+interface CameraTrackOptions {id:string;property:"position"|"zoom"|"rotation";startTime:number;duration:number;easing:"linear"|"easeIn"|"easeOut"|"easeInOut";loop:"none"|"repeat"|"pingPong";keyframes:{id:string;time:number;x?:number;y?:number;zoom?:number;rotation?:number;easing?:"linear"|"easeIn"|"easeOut"|"easeInOut"}[]}
+interface GroupOptions {id:string;name:string;layerIds:string[]}
+declare function createScene(options: SceneOptions): {addImage(options: ImageOptions & {attachments?:{id:string;name:string;x:number;y:number}[];skewX?:number}): void; animate(layerId: string, options: AnimationOptions): void;motionPath(layerId:string,options:MotionPathOptions):void;poseSet(options:PoseSetOptions):void;poseTrack(layerId:string,options:PoseTrackOptions):void;bind(layerId:string,options:BindingOptions):void;group(options:GroupOptions):void;camera(options:CameraOptions):void;cameraAnimate(options:CameraTrackOptions):void};
 `, 'studio-api.d.ts');
 
 export default function CodePanel({onClose, placement, setPlacement}: {onClose: () => void; placement: 'bottom' | 'right'; setPlacement: (placement: 'bottom' | 'right') => void}) {

@@ -65,7 +65,7 @@ try {
   await page.getByTitle('Pause · Space',{exact:true}).first().click();const paused=await page.getByRole('spinbutton',{name:'Playhead Time',exact:true}).inputValue();await page.waitForTimeout(180);assert.equal(await page.getByRole('spinbutton',{name:'Playhead Time',exact:true}).inputValue(),paused);
   await page.getByTitle('Stop',{exact:true}).first().click();console.log('PASS: UI animation presets, combined tracks, easing/loop/scrub, Auto Key, drag/copy/paste/delete keyframes, Play/Pause/Stop');
   await page.getByTitle('Save As',{exact:true}).click();await page.getByRole('textbox',{name:'Tên thư mục project',exact:true}).fill(name);await page.getByRole('dialog').getByRole('button',{name:'Save',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
-  const saved=await (await page.request.get(`${base}/api/projects/${name}`)).json();assert.equal(saved.schemaVersion,2);assert.equal(saved.scenes[0].animations.length,4);
+  const saved=await (await page.request.get(`${base}/api/projects/${name}`)).json();assert.equal(saved.schemaVersion,4);assert.equal(saved.scenes[0].animations.length,4);
   const layer=saved.scenes[0].layers[0],asset=saved.assets.find(a=>a.id===layer.assetId);
   const source=`const scene=createScene({width:1920,height:1080,fps:30,duration:10});\nscene.addImage({id:${JSON.stringify(layer.id)},asset:${JSON.stringify(asset.path)},x:0,y:150});\n`+
     `scene.animate(${JSON.stringify(layer.id)},{property:"position",keyframes:[{time:0,x:0,y:150},{time:4,x:800,y:150}],easing:"easeInOut"});\n`+
@@ -79,6 +79,6 @@ try {
   const stored=await (await page.request.get(`${base}/api/projects/${name}`)).json();assert.equal(stored.scenes[0].animations[0].keyframes[1].x,800);
   await page.reload();await page.locator('.monaco-editor').waitFor();await page.getByTitle('Open Project',{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name,exact:true}).click();page.once('dialog',dialog=>dialog.accept());await page.getByRole('dialog').getByRole('button',{name:'Open',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});await page.locator('.layer-row').first().click();await seek(2);await value('Position X',400);assert.equal(await page.locator('.timeline-key').count(),8);
   await page.screenshot({path:'test-results/studio-phase2.png',fullPage:true});assert.deepEqual(errors,[]);
-  console.log(`PASS: animation Code Apply/Undo/Redo/rejection, schema v2, Save/Open animation after reload. Project: ${name}`);
+  console.log(`PASS: animation Code Apply/Undo/Redo/rejection, schema v3, Save/Open animation after reload. Project: ${name}`);
 } catch(error) {await page.screenshot({path:'test-results/animation-failure.png',fullPage:true}).catch(()=>undefined);throw error;}
 finally {await browser.close();}

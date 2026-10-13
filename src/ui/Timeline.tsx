@@ -9,6 +9,9 @@ import PlaybackControls from './PlaybackControls';
 import NumberField from './NumberField';
 import HelpTip from './HelpTip';
 import { animationHelp, trackHelp } from './animationHelp';
+import AdvancedTimelineRows from './AdvancedTimelineRows';
+import TimelineTrackMenu from './TimelineTrackMenu';
+import CameraTimelineRows from './CameraTimelineRows';
 
 function TimelinePlayhead({pixelsPerSecond}: {pixelsPerSecond: number}) {
   const time = usePlayback(s => s.time);
@@ -32,12 +35,13 @@ export default function Timeline() {
   const timelineWidth = Math.min(6_000_000, Math.max(300, scene.duration*pixelsPerSecond));
   const snap = (value: number) => Math.round(value*scene.fps)/scene.fps;
   function seek(event: PointerEvent<HTMLDivElement>) {
+    if(event.type==='pointerdown'&&event.button!==0)return;
     const box = event.currentTarget.getBoundingClientRect();
     usePlayback.getState().seek(snap((event.clientX-box.left)/pixelsPerSecond));
   }
   function startGesture(event: PointerEvent<HTMLElement>, animation: Animation, frameId?: string, resizing = false) {
     event.stopPropagation();
-    const layer = scene.layers.find(l => l.id === animation.layerId); if (layer?.locked) return;
+    const layer = scene.layers.find(l => l.id === animation.layerId); if (layer?.locked || event.button !== 0) return;
     usePlayback.getState().pause(); useEditor.getState().select(animation.layerId); selection.select(animation.id, frameId);
     event.currentTarget.setPointerCapture(event.pointerId);
     const original = resizing ? animation.duration : frameId ? animation.keyframes.find(k => k.id === frameId)!.time : animation.startTime;
@@ -61,7 +65,7 @@ export default function Timeline() {
   // Keep long-duration timelines bounded: at most 1000 ruler labels.
   const interval = Math.max(scaleTick, Math.ceil(scene.duration/1000));
   const selectedTrack = scene.animations.find(a => a.id === selection.animationId);
-  return <section className="timeline-panel" aria-label="Animation Timeline">
+  return <TimelineTrackMenu><section tabIndex={0} className="timeline-panel" aria-label="Animation Timeline">
     <div className="timeline-toolbar"><strong className="field-label">Timeline <HelpTip label="Timeline" text={animationHelp.timeline}/></strong><PlaybackControls/>
       <label className={`auto-key-label ${autoKey ? 'enabled' : ''}`}><input aria-label="Timeline Auto Keyframe" type="checkbox" checked={autoKey} onChange={event => useEditor.getState().setAutoKey(event.target.checked)}/><Diamond size={12}/>Auto Key <HelpTip label="Auto Key trên Timeline" text={animationHelp.autoKey}/></label>
       <TimeInput/>
@@ -79,17 +83,18 @@ export default function Timeline() {
         onPointerMove={event => {if (event.buttons === 1) seek(event);}}>
         {Array.from({length: Math.floor(scene.duration/interval)+1}, (_, i) => <span key={i} style={{left: i*interval*pixelsPerSecond}}>{(i*interval).toFixed(interval < 1 ? 1 : 0)}s</span>)}
       </div></div>
+      <CameraTimelineRows scene={scene} pps={pixelsPerSecond} width={timelineWidth}/>
       {scene.layers.map(layer => <div key={layer.id}>
         <div className={`timeline-row ${selectedLayers.includes(layer.id) ? 'selected-layer' : ''}`}><button className="track-label sticky-label layer-track-label" onClick={() => {useEditor.getState().select(layer.id); setCollapsed(previous => {const next = new Set(previous); if (next.has(layer.id)) next.delete(layer.id); else next.add(layer.id); return next;});}}>{collapsed.has(layer.id) ? <ChevronRight size={13}/> : <ChevronDown size={13}/>}<span>{layer.name}</span></button><div className="time-lane layer-lane" style={{width: timelineWidth, backgroundSize: `${pixelsPerSecond}px 100%`}} onPointerDown={seek}/></div>
         {!collapsed.has(layer.id) && scene.animations.filter(a => a.layerId === layer.id).map(animation => {
           const startTime = drag?.animationId === animation.id && !drag.frameId && !drag.resizing ? drag.value : animation.startTime;
           const duration = drag?.animationId === animation.id && drag.resizing ? drag.value : animation.duration;
-          return <div className="timeline-row" key={animation.id}><button className={`track-label sticky-label ${selection.animationId === animation.id ? 'selected' : ''}`} title={trackHelp[animation.property]} onClick={() => {useEditor.getState().select(layer.id); selection.select(animation.id);}}>{trackLabels[animation.property]}</button><div className="time-lane" style={{width: timelineWidth, backgroundSize: `${pixelsPerSecond}px 100%`}} onPointerDown={seek}>
+          return <div className={`timeline-row ${selection.animationId===animation.id?'active-track':''}`} key={animation.id} data-track-id={animation.id} data-track-kind="animation"><button className={`track-label sticky-label ${selection.animationId === animation.id ? 'selected' : ''}`} title={trackHelp[animation.property]} onClick={() => {useEditor.getState().select(layer.id); selection.select(animation.id);}}>{trackLabels[animation.property]}</button><div className="time-lane" style={{width: timelineWidth, backgroundSize: `${pixelsPerSecond}px 100%`}} onPointerDown={seek}>
             <div className={`animation-bar ${selection.animationId === animation.id ? 'selected' : ''}`} title={`${trackLabels[animation.property]} · kéo để đổi Start Time`} style={{left: startTime*pixelsPerSecond, width: duration*pixelsPerSecond}}
               onPointerDown={event => startGesture(event, animation)} onPointerMove={event => moveGesture(event, animation)} onPointerUp={endGesture} onPointerCancel={() => {gesture.current = null; setDrag(null);}}>
               {animation.keyframes.map(frame => {
                 const at = drag?.animationId === animation.id && drag.frameId === frame.id ? drag.value : frame.time/animation.duration*duration;
-                return <button key={frame.id} className={`timeline-key ${selection.frameId === frame.id && selection.animationId === animation.id ? 'selected' : ''}`} title={`Keyframe ${animation.property} @ ${(startTime+at).toFixed(3)}s\nMốc giá trị của chuyển động. Click để chọn, kéo sang trái/phải để đổi thời gian; chỉnh Key values trong Properties.`} aria-label={`Keyframe ${animation.property} ${frame.id}`} style={{left: at*pixelsPerSecond}}
+                return <button key={frame.id} data-frame-id={frame.id} className={`timeline-key ${selection.frameId === frame.id && selection.animationId === animation.id ? 'selected' : ''}`} title={`Keyframe ${animation.property} @ ${(startTime+at).toFixed(3)}s\nMốc giá trị của chuyển động. Click để chọn, kéo sang trái/phải để đổi thời gian; chỉnh Key values trong Properties.`} aria-label={`Keyframe ${animation.property} ${frame.id}`} style={{left: at*pixelsPerSecond}}
                   onPointerDown={event => startGesture(event, animation, frame.id)} onPointerMove={event => {event.stopPropagation(); moveGesture(event, animation);}} onPointerUp={event => {event.stopPropagation(); endGesture();}}><Diamond size={12}/></button>;
               })}
               <button className="timeline-duration-handle" title="Kéo đổi Animation Duration" aria-label={`Resize ${animation.property} Duration`}
@@ -97,9 +102,10 @@ export default function Timeline() {
             </div>
           </div></div>;
         })}
+        {!collapsed.has(layer.id)&&<AdvancedTimelineRows scene={scene} layerId={layer.id} width={timelineWidth} pps={pixelsPerSecond}/>}
       </div>)}
       {!scene.layers.length && <div className="timeline-empty">Thêm ảnh vào Canvas, chọn Layer và tạo animation trong Properties.</div>}
       <TimelinePlayhead pixelsPerSecond={pixelsPerSecond}/>
     </div></div>
-  </section>;
+  </section></TimelineTrackMenu>;
 }
