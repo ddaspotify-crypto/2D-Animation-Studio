@@ -68,7 +68,7 @@ describe('Animation code/schema/persistence', () => {
   });
   it('migrates actual Phase 1 projects without losing transforms/assets', () => {
     const project=fixture(); const {animations: ignored,...legacyScene}=getScene(project); void ignored;
-    const migrated=validateProject({...project,schemaVersion:1,scenes:[legacyScene]}); expect(migrated.schemaVersion).toBe(4); expect(getScene(migrated).animations).toEqual([]); expect(getScene(migrated).layers).toEqual(legacyScene.layers);
+    const migrated=validateProject({...project,schemaVersion:1,scenes:[legacyScene]}); expect(migrated.schemaVersion).toBe(5); expect(getScene(migrated).animations).toEqual([]); expect(getScene(migrated).layers).toEqual(legacyScene.layers);
   });
 });
 describe('Keyframe editing/history and playback separation', () => {

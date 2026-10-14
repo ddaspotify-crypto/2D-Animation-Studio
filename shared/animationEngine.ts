@@ -1,6 +1,7 @@
 import type { Animation, AnimationProperty, Easing, Keyframe, Layer, Scene, Transform,PoseTrack } from './model.js';
 import { bindingSpace, decompose, matrixFromTransform, multiply, transformPoint } from './transforms.js';
 import { samplePath } from './motionPaths.js';
+import { activeCodeFrame,sampleCodeFrames,deformDrawing } from './frameCode.js';
 
 export const propertyKeys: Record<AnimationProperty, ('x'|'y'|'scaleX'|'scaleY'|'rotation'|'opacity'|'zOrder')[]> = {
   position: ['x','y'], scale: ['scaleX','scaleY'], rotation: ['rotation'], opacity: ['opacity'],zOrder:['zOrder'],
@@ -67,6 +68,7 @@ export function evaluateSceneAtTime(scene: Scene, time: number): {layers: Evalua
       if(path.orientToPath){const backwards=path.loop==='pingPong' && (t-path.startTime)%(path.duration*2)>path.duration;result.transform.rotation+=sample.angle+(path.reverse!==backwards?180:0);}
       if(path.followPoint){const tr=result.transform,offset=transformPoint(matrixFromTransform({...tr,x:0,y:0}),{x:(path.followPoint.x-tr.anchorX)*tr.width,y:(path.followPoint.y-tr.anchorY)*tr.height});tr.x-=offset.x;tr.y-=offset.y;}
     }
+    if(layer.codeFrames?.length){const active=activeCodeFrame(layer.codeFrames,t,scene.fps);if(active?.visual){result.transform={...active.visual.transform};result.opacity=active.visual.opacity;result.visible=active.visual.visible;const next=layer.codeFrames[layer.codeFrames.indexOf(active)+1];if(active.transition==='interpolate'&&next?.visual&&next.startFrame===active.startFrame+active.holdFrames){const u=Math.min(1,(t*scene.fps-active.startFrame)/active.holdFrames);for(const key of ['x','y','width','height','scaleX','scaleY','rotation','anchorX','anchorY'] as const)result.transform[key]+= (next.visual.transform[key]-result.transform[key])*u;result.opacity+=(next.visual.opacity-result.opacity)*u;}}const frame=sampleCodeFrames(layer.codeFrames,t,scene.fps);result.transform.x+=frame.offset.x;result.transform.y+=frame.offset.y;result.transform.rotation+=frame.rotation;result.transform.scaleX*=frame.scale.x;result.transform.scaleY*=frame.scale.y;result.opacity*=frame.opacity;if(layer.drawing)result.drawing=deformDrawing(layer.drawing,frame);}
     return result;
   });
   const byId=new Map(localLayers.map(l=>[l.id,l])),resolved=new Map<string,EvaluatedLayer>();

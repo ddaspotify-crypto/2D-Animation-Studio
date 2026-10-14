@@ -1,0 +1,5 @@
+import Konva from 'konva';
+import type { Drawing } from '../../shared/drawingModel.js';
+export function drawVector(ctx:CanvasRenderingContext2D,d:Drawing){for(const path of d.paths){ctx.save();ctx.globalAlpha*=path.opacity;ctx.fillStyle=path.fill;ctx.beginPath();for(const contour of path.contours){const points=contour.points;ctx.moveTo(points[0].x,points[0].y);for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length];if(a.out||b.in)ctx.bezierCurveTo(a.out?.x??a.x,a.out?.y??a.y,b.in?.x??b.x,b.in?.y??b.y,b.x,b.y);else ctx.lineTo(b.x,b.y);}ctx.closePath();}ctx.fill('evenodd');ctx.restore();}}
+export const vectorSceneFunc:Konva.ShapeConfig['sceneFunc']=(ctx,node)=>{const d=node.getAttr('drawingData') as Drawing|undefined;if(d){ctx.save();ctx.scale(node.width()/d.width,node.height()/d.height);drawVector(ctx._context,d);ctx.restore();}};
+export const vectorHitFunc:Konva.ShapeConfig['hitFunc']=(ctx,node)=>{ctx.beginPath();ctx.rect(0,0,node.width(),node.height());ctx.closePath();ctx.fillStrokeShape(node);};

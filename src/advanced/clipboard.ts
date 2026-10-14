@@ -6,14 +6,17 @@ import { useWorkspace } from '../store/workspaceStore';
 import { cloneLayers } from './cloneLayers';
 import { upsertKeyframe } from '../animation/commands';
 import { upsertCameraKey } from '../camera/commands';
+import { captureFrameClip,pasteFrameClip,captureSelectedFrames,type FrameReference } from '../../shared/frameClipboard.js';
+import { selectCodeFrame } from '../vector/frameActions';
 
-type Clip={projectId:string;scene:Scene;ids:string[];groups:string[];time:number;kind:'layers'|'asset'|'animation'|'path'|'pose'|'camera';id?:string;frameId?:string};
+type Clip={projectId:string;scene:Scene;ids:string[];groups:string[];time:number;kind:'layers'|'asset'|'animation'|'path'|'pose'|'camera'|'code';id?:string;frameId?:string;frameRefs?:FrameReference[]};
 let clipboard:Clip|null=null;
+export const hasFrameClipboard=()=>clipboard?.kind==='code';
 export function copyWorkspace(){
   const state=useEditor.getState(),scene=getScene(state.project),area=useWorkspace.getState(),selection=useTimeline.getState();
   let clip:Clip={projectId:state.project.id,scene:structuredClone(scene),ids:[...state.selectedIds],groups:state.selectedGroupId?[state.selectedGroupId]:[],time:usePlayback.getState().time,kind:'layers'};
   if(area.area==='assets'){if(!area.assetId)return false;clip={...clip,kind:'asset',id:area.assetId};}
-  else if(area.area==='timeline'){if(!selection.animationId)return false;clip={...clip,kind:selection.kind,id:selection.animationId,frameId:selection.frameId??undefined};const list=clip.kind==='camera'?scene.camera.animations:clip.kind==='animation'?scene.animations:clip.kind==='path'?scene.motionPaths:scene.poseTracks;if(!list.some(t=>t.id===clip.id))return false;}
+  else if(area.area==='timeline'){if(!selection.animationId)return false;clip={...clip,kind:selection.kind,id:selection.animationId,frameId:selection.frameId??undefined,...(selection.kind==='code'?{frameRefs:structuredClone(selection.codeSelection)}:{})};const list=clip.kind==='code'?scene.layers:clip.kind==='camera'?scene.camera.animations:clip.kind==='animation'?scene.animations:clip.kind==='path'?scene.motionPaths:scene.poseTracks;if(!list.some(t=>t.id===clip.id))return false;}
   else if(!clip.ids.length)return false;
   clipboard=clip;return true;
 }
@@ -31,6 +34,7 @@ export function pasteWorkspace(){
     if(c.kind==='camera'){const track=c.scene.camera.animations.find(a=>a.id===c.id)!;let next:Scene;if(c.frameId)next=upsertCameraKey(scene,track.property,time,track.keyframes.find(k=>k.id===c.frameId));else{if(time+track.duration>scene.duration)throw Error('Camera track vượt Scene Duration.');next={...scene,camera:{...scene.camera,animations:[...scene.camera.animations.filter(a=>a.property!==track.property),{...structuredClone(track),id:crypto.randomUUID(),startTime:time,keyframes:track.keyframes.map(k=>({...k,id:crypto.randomUUID()}))}]}};}commit(next,state.project);useTimeline.getState().select(next.camera.animations.find(a=>a.property===track.property)!.id,null,'camera');return true;}
     const layerId=state.selectedIds[0],layer=scene.layers.find(l=>l.id===layerId);if(!layer)throw Error('Chọn Layer nhận animation trước khi Paste.');if(layer.locked)throw Error('Mở khóa Layer trước khi Paste.');
     let next:Scene;
+    if(c.kind==='code'){const result=pasteFrameClip(scene,c.frameRefs?.length?captureSelectedFrames(c.scene,c.frameRefs):captureFrameClip(c.scene,c.id!,c.frameId),state.selectedIds,Math.round(time*scene.fps),()=>crypto.randomUUID());commit(result.scene,state.project);selectCodeFrame(result.layerId,result.frameId);useTimeline.setState({codeSelection:result.references});useEditor.setState({selectedIds:result.targetIds});return true;}
     if(c.kind==='animation'){
       const a=c.scene.animations.find(a=>a.id===c.id)!;
       if(c.frameId){const k=a.keyframes.find(k=>k.id===c.frameId)!;next=upsertKeyframe(scene,layerId,a.property,time,k);const track=next.animations.find(t=>t.layerId===layerId&&t.property===a.property)!;useTimeline.getState().select(track.id,track.keyframes.find(k=>Math.abs(k.time+track.startTime-time)<1e-6)?.id);}

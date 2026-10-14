@@ -1,4 +1,4 @@
-# 2D Animation Studio — Phase 6 (local)
+# 2D Animation Studio — Vector & Code Frames (0.7.0)
 
 Ứng dụng local trên Windows: bố trí và tạo animation qua Canvas/Timeline hoặc JavaScript khai báo. Đọc [ARCHITECTURE.md](ARCHITECTURE.md) để xem kiến trúc và phân bổ toàn bộ yêu cầu của hai tài liệu theo từng phase.
 
@@ -13,6 +13,10 @@
 **Review Phase 5:** [PHASE5_REVIEW.md](PHASE5_REVIEW.md) — Export MP4 H.264, chọn Scene/resolution/FPS/quality/thư mục, tiến độ/hủy và cách cài FFmpeg. Bản local hiện tại đã có FFmpeg ở tools/. Khi clone repo trên máy khác, chạy `powershell -ExecutionPolicy Bypass -File scripts/install-ffmpeg.ps1` hoặc đặt executable theo hướng dẫn. Binary FFmpeg và video xuất không đưa vào Git.
 
 **Review Phase 6:** [PHASE6_REVIEW.md](PHASE6_REVIEW.md) — tối ưu engine/renderer, phím tắt đầy đủ, menu Canvas/Layer/Group, autosave ảnh/code và khôi phục project hỏng. Bản 0.6.0 chạy localhost; Electron Packaging và Windows Installer được bỏ qua theo yêu cầu.
+
+**Vector & Code Frames:** [VECTOR_CODE_FRAMES_GUIDE.md](VECTOR_CODE_FRAMES_GUIDE.md) — frame-by-frame trực tiếp trên Canvas với PNG/Group, chọn Ctrl/Shift và kéo/copy/paste nhiều frame; vector local, biến dạng điểm/handle Bézier, Hold/Interpolate, Onion Skin, Vector Library, Save/Autosave/MP4. Bản 0.7.0 dùng schema v5; project v1–v4 được migrate khi mở.
+
+**Frame-by-frame trực quan:** Chọn Layer hoặc Group → + Code Frame → kéo/xoay trên Canvas → Lưu frame / Ctrl+S. Duplicate / tiếp nối kế thừa tư thế trước, click từng ô để xem lại và Play để review. Dùng PNG trực tiếp; không bắt buộc chuyển Vector hoặc nhập code. Xem mục 2 trong hướng dẫn trên.
 
 **Animation Library:** [ANIMATION_LIBRARY_GUIDE.md](ANIMATION_LIBRARY_GUIDE.md) — 14 presets, lưu chuyển động Layer/Group/Path/Pose, Preview/Apply, thư viện dùng chung và Import/Export mẫu.
 

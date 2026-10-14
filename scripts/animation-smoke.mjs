@@ -65,7 +65,7 @@ try {
   await page.getByTitle('Pause · Space',{exact:true}).first().click();const paused=await page.getByRole('spinbutton',{name:'Playhead Time',exact:true}).inputValue();await page.waitForTimeout(180);assert.equal(await page.getByRole('spinbutton',{name:'Playhead Time',exact:true}).inputValue(),paused);
   await page.getByTitle('Stop',{exact:true}).first().click();console.log('PASS: UI animation presets, combined tracks, easing/loop/scrub, Auto Key, drag/copy/paste/delete keyframes, Play/Pause/Stop');
   await page.getByTitle('Save As',{exact:true}).click();await page.getByRole('textbox',{name:'Tên thư mục project',exact:true}).fill(name);await page.getByRole('dialog').getByRole('button',{name:'Save',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
-  const saved=await (await page.request.get(`${base}/api/projects/${name}`)).json();assert.equal(saved.schemaVersion,4);assert.equal(saved.scenes[0].animations.length,4);
+  const saved=await (await page.request.get(`${base}/api/projects/${name}`)).json();assert.equal(saved.schemaVersion,5);assert.equal(saved.scenes[0].animations.length,4);
   const layer=saved.scenes[0].layers[0],asset=saved.assets.find(a=>a.id===layer.assetId);
   const source=`const scene=createScene({width:1920,height:1080,fps:30,duration:10});\nscene.addImage({id:${JSON.stringify(layer.id)},asset:${JSON.stringify(asset.path)},x:0,y:150});\n`+
     `scene.animate(${JSON.stringify(layer.id)},{property:"position",keyframes:[{time:0,x:0,y:150},{time:4,x:800,y:150}],easing:"easeInOut"});\n`+

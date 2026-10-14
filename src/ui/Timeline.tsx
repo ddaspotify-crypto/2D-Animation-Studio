@@ -12,6 +12,8 @@ import { animationHelp, trackHelp } from './animationHelp';
 import AdvancedTimelineRows from './AdvancedTimelineRows';
 import TimelineTrackMenu from './TimelineTrackMenu';
 import CameraTimelineRows from './CameraTimelineRows';
+import CodeFramesTimeline from '../vector/CodeFramesTimeline';
+import { addCodeFrame,duplicateCodeFrame } from '../vector/frameActions';
 
 function TimelinePlayhead({pixelsPerSecond}: {pixelsPerSecond: number}) {
   const time = usePlayback(s => s.time);
@@ -30,6 +32,9 @@ export default function Timeline() {
   const scene = useEditor(s => getScene(s.project)), selectedLayers = useEditor(s => s.selectedIds), autoKey = useEditor(s => s.autoKey);
   const selection = useTimeline();
   const [pixelsPerSecond, setPixelsPerSecond] = useState(70), [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const hasSingleFrames=scene.layers.some(l=>l.codeFrames?.some(f=>f.holdFrames===1));
+  useEffect(()=>{if(hasSingleFrames)setPixelsPerSecond(v=>Math.max(v,scene.fps*12));},[scene.id,scene.fps,hasSingleFrames]);
+  const continuation=selection.kind==='code'?scene.layers.find(l=>l.id===selection.animationId)?.codeFrames?.find(f=>f.id===selection.frameId):undefined;
   const [drag, setDrag] = useState<{animationId: string; frameId?: string; resizing?: boolean; value: number} | null>(null);
   const gesture = useRef<{id: string; frameId?: string; resizing?: boolean; startX: number; original: number; value: number} | null>(null);
   const timelineWidth = Math.min(6_000_000, Math.max(300, scene.duration*pixelsPerSecond));
@@ -69,13 +74,17 @@ export default function Timeline() {
     <div className="timeline-toolbar"><strong className="field-label">Timeline <HelpTip label="Timeline" text={animationHelp.timeline}/></strong><PlaybackControls/>
       <label className={`auto-key-label ${autoKey ? 'enabled' : ''}`}><input aria-label="Timeline Auto Keyframe" type="checkbox" checked={autoKey} onChange={event => useEditor.getState().setAutoKey(event.target.checked)}/><Diamond size={12}/>Auto Key <HelpTip label="Auto Key trên Timeline" text={animationHelp.autoKey}/></label>
       <TimeInput/>
+      <button title="Thêm Code Frame tại playhead" disabled={!selectedLayers.length} onClick={()=>{addCodeFrame(selectedLayers[0],undefined,selectedLayers);document.querySelector('.code-frame-properties')?.scrollIntoView({block:'start',behavior:'smooth'});}}>+ Code Frame</button>
+      <button title="Nhân bản tư thế đang chọn sang frame tiếp theo" disabled={!continuation} onClick={()=>{if(continuation&&selection.animationId)duplicateCodeFrame(selection.animationId,continuation.id);}}>+ Tiếp nối Frame</button>
+      {selection.kind==='code'&&selection.codeSelection.length>1&&<span className="property-note">{selection.codeSelection.length} frame đã chọn · Ctrl+C để copy</span>}
+      {selection.kind==='code'&&selection.frameId&&<button title="Lưu tư thế frame và project · Ctrl+S" onClick={()=>window.dispatchEvent(new Event('studio-save-frame'))}>Lưu frame</button>}
       <div className="timeline-duration-input" title="Tổng thời lượng scene. Nhập số giây rồi nhấn Enter.">
         <NumberField label="Thời lượng (s)" help={animationHelp.sceneDuration} value={scene.duration} min={.01} max={86400} step={1}
           onCommit={duration => useEditor.getState().updateScene({duration})}/>
       </div>
       <div className="inline-help-action"><button title="Animation Properties" disabled={!selectedLayers.length} onClick={() => document.querySelector('.animation-properties')?.scrollIntoView({block: 'start', behavior: 'smooth'})}>+ Animation</button><HelpTip label="Mở phần Animation" text="Chọn Layer rồi bấm + Animation để tới phần tạo chuyển động trong Properties. Bấm tiếp Move/Scale/Rotate/Fade để thêm track; nút này chỉ đưa bạn tới các điều khiển."/></div>
       <button title="Delete Timeline Keyframe" disabled={!selection.frameId || !selectedTrack || scene.layers.find(l => l.id === selectedTrack?.layerId)?.locked} onClick={() => selectedTrack && selection.frameId && useEditor.getState().removeKeyframe(selectedTrack.id, selection.frameId)}><Trash2 size={13}/></button>
-      <div className="timeline-zoom"><button title="Timeline Zoom Out" onClick={() => setPixelsPerSecond(v => Math.max(10, v/1.4))}><Minus size={13}/></button><span>{Math.round(pixelsPerSecond)} px/s</span><button title="Timeline Zoom In" onClick={() => setPixelsPerSecond(v => Math.min(300, v*1.4))}><Plus size={13}/></button><HelpTip label="Zoom Timeline / px/s" text={animationHelp.zoom}/></div>
+      <div className="timeline-zoom"><button title="Timeline Zoom Out" onClick={() => setPixelsPerSecond(v => Math.max(10, v/1.4))}><Minus size={13}/></button><span>{Math.round(pixelsPerSecond)} px/s</span><button title="Timeline Zoom In" onClick={() => setPixelsPerSecond(v => Math.min(2400, v*1.4))}><Plus size={13}/></button><HelpTip label="Zoom Timeline / px/s" text={animationHelp.zoom}/></div>
     </div>
     <div className="timeline-scroll"><div className="timeline-content" style={{width: timelineWidth+170}}>
       <div className="timeline-row ruler-row"><div className="track-label sticky-label field-label">Layers / Tracks <HelpTip label="Layer / Track / Keyframe" text={`${animationHelp.track} ${animationHelp.keyframe}`}/></div><div className="time-lane ruler" style={{width: timelineWidth}} title="Click hoặc kéo trên thước để xem tại thời điểm đó; playback sẽ tạm dừng."
@@ -103,6 +112,7 @@ export default function Timeline() {
           </div></div>;
         })}
         {!collapsed.has(layer.id)&&<AdvancedTimelineRows scene={scene} layerId={layer.id} width={timelineWidth} pps={pixelsPerSecond}/>}
+        {!collapsed.has(layer.id)&&<CodeFramesTimeline layer={layer} scene={scene} pps={pixelsPerSecond} width={timelineWidth}/>}
       </div>)}
       {!scene.layers.length && <div className="timeline-empty">Thêm ảnh vào Canvas, chọn Layer và tạo animation trong Properties.</div>}
       <TimelinePlayhead pixelsPerSecond={pixelsPerSecond}/>

@@ -1,0 +1,2 @@
+import { traceRaster } from './traceRaster';
+self.onmessage=(e:MessageEvent<{data:Uint8ClampedArray;width:number;height:number;originalWidth:number;originalHeight:number;colors:number;tolerance:number}>)=>{try{const v=e.data;self.postMessage({drawing:traceRaster(v.data,v.width,v.height,v.originalWidth,v.originalHeight,v.colors,v.tolerance)});}catch(e){self.postMessage({error:e instanceof Error?e.message:'Không chuyển ảnh thành vector được.'});}};

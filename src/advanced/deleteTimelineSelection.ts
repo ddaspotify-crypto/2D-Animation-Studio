@@ -3,11 +3,13 @@ import { useEditor } from '../store/editorStore';
 import { useTimeline } from '../store/timelineStore';
 import { editAdvanced } from './actions';
 import { deleteCameraTrack } from '../camera/actions';
+import { removeCodeFrame } from '../vector/frameActions';
 
 /** Timeline Delete never falls back to deleting the owning Layer. */
 export function deleteTimelineSelection(){
   const selection=useTimeline.getState(),state=useEditor.getState(),scene=getScene(state.project),id=selection.animationId;
   if(!id)return;
+  if(selection.kind==='code'){removeCodeFrame(id,selection.frameId??undefined);return;}
   if(selection.kind==='camera'){deleteCameraTrack(id,selection.frameId??undefined);useTimeline.getState().select(null);return;}
   const track=selection.kind==='animation'?scene.animations.find(a=>a.id===id):selection.kind==='path'?scene.motionPaths.find(p=>p.id===id):scene.poseTracks.find(p=>p.id===id);
   if(!track||scene.layers.find(l=>l.id===track.layerId)?.locked)return;

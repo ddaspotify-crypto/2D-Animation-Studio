@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import Konva from 'konva';
-import { Stage, Layer as KonvaLayer, Rect, Image as KonvaImage, Transformer, Line } from 'react-konva';
+import { Stage, Layer as KonvaLayer, Rect, Image as KonvaImage, Shape, Transformer, Line } from 'react-konva';
+import { vectorSceneFunc,vectorHitFunc } from '../render/drawingRenderer';
+import VectorOverlay from '../vector/VectorOverlay';
 import { Maximize, Minus, Plus, Grid2X2, Hand, MousePointer2 } from 'lucide-react';
 import { getScene, type Layer } from '../../shared/model.js';
 import { loadImage } from '../assets/assetManager';
@@ -17,11 +19,14 @@ import { useCameraView } from '../store/cameraViewStore';
 import CameraOverlay from './CameraOverlay';
 import OutputCameraPreview from './OutputCameraPreview';
 
+const VectorConvertDialog = lazy(() => import('../vector/VectorConvertDialog'));
+
 function ImageNode({layer,drawing}: {layer: Layer;drawing:boolean}) {
   const select = useEditor(s => s.select);
   const update = useEditor(s => s.updateLayer);
   const t = layer.transform;
-  return <KonvaImage id={layer.id} image={undefined} x={t.x} y={t.y} width={t.width} height={t.height}
+  const Node=layer.drawing?Shape:KonvaImage;
+  return <Node id={layer.id} image={undefined} {...(layer.drawing?{drawingData:layer.drawing,sceneFunc:vectorSceneFunc,hitFunc:vectorHitFunc,fill:'#ffffff'}:{})} x={t.x} y={t.y} width={t.width} height={t.height}
     scaleX={t.scaleX*(t.flipX?-1:1)} scaleY={t.scaleY*(t.flipY?-1:1)} rotation={t.rotation} offsetX={t.anchorX * t.width} offsetY={t.anchorY * t.height}
     visible={layer.visible} opacity={layer.opacity} draggable={!layer.locked&&!drawing} listening={!layer.locked&&!drawing}
     onClick={event => {event.cancelBubble = true; select(layer.id, event.evt.shiftKey);}}
@@ -42,6 +47,8 @@ export default function CanvasEditor({busy, onDropFiles}: {busy: boolean; onDrop
   const drawLayerId=usePathEditor(s=>s.drawLayerId);
   const drawing=useRef<Point[]>([]),[drawPreview,setDrawPreview]=useState<Point[]>([]);
   const scene = getScene(project);
+  const selectedLayer = selected.length === 1 ? scene.layers.find(layer => layer.id === selected[0]) : undefined;
+  const [convertLayerId, setConvertLayerId] = useState<string | null>(null);
   const stage = useRef<Konva.Stage>(null), transformer = useRef<Konva.Transformer>(null);
   const container = useRef<HTMLDivElement>(null);
   const editing = useRef(false);
@@ -73,7 +80,7 @@ export default function CanvasEditor({busy, onDropFiles}: {busy: boolean; onDrop
       for (const layer of evaluated) {
         const t = layer.transform;
         const node=nodes.get(layer.id);
-        node?.setAttrs({x:t.x,y:t.y,width:t.width,height:t.height,offsetX:t.anchorX*t.width,offsetY:t.anchorY*t.height,skewX:t.skewX??0,scaleX:t.scaleX*(t.flipX?-1:1),scaleY:t.scaleY*(t.flipY?-1:1),rotation:t.rotation,opacity:layer.opacity,image:images.get(layer.assetId)});
+        node?.setAttrs({x:t.x,y:t.y,width:t.width,height:t.height,offsetX:t.anchorX*t.width,offsetY:t.anchorY*t.height,skewX:t.skewX??0,scaleX:t.scaleX*(t.flipX?-1:1),scaleY:t.scaleY*(t.flipY?-1:1),rotation:t.rotation,opacity:layer.opacity,visible:layer.visible,drawingData:layer.drawing,image:images.get(layer.assetId)});
         if(reorder)node?.moveToTop();
       }
       lastOrder=order;transformer.current?.moveToTop();transformer.current?.forceUpdate(); stage.current?.batchDraw();
@@ -117,6 +124,7 @@ export default function CanvasEditor({busy, onDropFiles}: {busy: boolean; onDrop
   return <div className="canvas-column">
     <div className="canvas-toolbar"><span className="scene-label"><i/>{scene.name} <small>{scene.width} × {scene.height}</small></span>
       <button title="Toggle Output Camera" aria-pressed={output} onClick={()=>{usePlayback.getState().pause();useCameraView.setState({output:!output,edit:false});}}>{output?'← Editor View':'Camera Preview'}</button>
+      <button title="Chọn một ảnh trên Canvas rồi chuyển thành đường vẽ để chỉnh nét bằng Code Frames" disabled={busy || !selectedLayer || selectedLayer.locked || !!selectedLayer.drawing} onClick={()=>{if(selectedLayer){usePlayback.getState().pause();setConvertLayerId(selectedLayer.id);}}}>Chuyển ảnh → Vector</button>
       <div className="tool-cluster">
         <button className={!pan ? 'active' : ''} title="Chọn / di chuyển" onClick={() => setPan(false)}><MousePointer2 size={15}/></button>
         <button className={pan ? 'active' : ''} title="Pan workspace" onClick={() => setPan(!pan)}><Hand size={15}/></button>
@@ -152,6 +160,7 @@ export default function CanvasEditor({busy, onDropFiles}: {busy: boolean; onDrop
         </KonvaLayer>
         <KonvaLayer listening={!pan&&!drawLayerId}>
           {!output&&selected[0]&&<PathOverlay scene={scene} layerId={selected[0]} zoom={view.zoom}/>}
+          {!output&&selected[0]&&<VectorOverlay scene={scene} layerId={selected[0]} zoom={view.zoom}/>}
           {!output&&<CameraOverlay zoom={view.zoom}/>}
           {!!drawPreview.length&&<Line points={drawPreview.map(drawWorld).flatMap(p=>[p.x,p.y])} stroke="#6ecfe5" strokeWidth={2/view.zoom} listening={false}/>}
         </KonvaLayer>
@@ -160,5 +169,6 @@ export default function CanvasEditor({busy, onDropFiles}: {busy: boolean; onDrop
       {!scene.layers.length && <div className="canvas-empty"><MousePointer2 size={22}/><strong>Không gian sáng tạo của bạn</strong><span>Kéo ảnh từ thư viện hoặc từ máy vào Canvas</span></div>}
     </div>
     <div className="canvas-footer"><span>{output?'Camera Preview: khung hình đầu ra · Về Editor View để chỉnh ảnh.':drawLayerId?'Giữ chuột vẽ đường; thả để lưu. Esc hủy vẽ.':'Shift + click: chọn nhiều · Cuộn chuột: zoom · Hand: pan'}</span><span>{output?'Output Camera':'Editor View'} · {scene.fps} FPS · {scene.duration}s</span></div>
+    {convertLayerId && scene.layers.some(layer=>layer.id===convertLayerId) && <Suspense fallback={<div className="modal-overlay">Đang mở bộ chuyển ảnh…</div>}><VectorConvertDialog layerId={convertLayerId} onClose={()=>setConvertLayerId(null)}/></Suspense>}
   </div>;
 }

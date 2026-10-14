@@ -1,16 +1,13 @@
 import { z } from 'zod';
+import { drawingSchema,codeFrameSchema } from './drawingModel.js';
+import { parseFrameCode,checkFrameDrawing } from './frameCode.js';
+import { transformSchema } from './transformModel.js';
+export { transformSchema } from './transformModel.js';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 const id = z.string().min(1).max(100).regex(/^[\w-]+$/);
 const finite = z.number().finite().min(-1e7).max(1e7);
 const size = z.number().finite().positive().max(16384);
-export const transformSchema = z.object({
-  x: finite, y: finite, width: size, height: size,
-  scaleX: z.number().finite().positive().max(100), scaleY: z.number().finite().positive().max(100),
-  rotation: finite, anchorX: z.number().min(0).max(1), anchorY: z.number().min(0).max(1),
-  skewX: finite.optional(),
-  flipX: z.boolean().optional(), flipY: z.boolean().optional(),
-}).strict();
 export const assetSchema = z.object({
   id, name: z.string().min(1).max(250),
   path: z.string().regex(/^assets\/[a-f0-9]{64}\.(png|jpg|jpeg|webp)$/),
@@ -22,6 +19,7 @@ export const layerSchema = z.object({
   visible: z.boolean(), locked: z.boolean(), opacity: z.number().min(0).max(1),
   transform: transformSchema,
   groupId: id.optional(),
+  drawing:drawingSchema.optional(),codeFrames:z.array(codeFrameSchema).max(2000).optional(),
   binding: z.object({parentId: id, mode: z.enum(['position','transform']), attachmentId: id.optional()}).strict().nullable().optional(),
   attachments: z.array(z.object({id, name: z.string().min(1).max(100), x: z.number().min(0).max(1), y: z.number().min(0).max(1)}).strict()).max(100).optional(),
 }).strict();
@@ -89,6 +87,7 @@ export const projectSchema = z.object({
   unique(project.assets.map(a => a.id), 'Assets');
   unique(project.assets.map(a => a.path), 'Asset paths');
   unique(project.scenes.map(s => s.id), 'Scenes');
+  unique(project.scenes.flatMap(s=>s.layers.flatMap(l=>(l.codeFrames??[]).map(f=>f.id))),'Code Frame IDs');
   const assets = new Set(project.assets.map(a => a.id));
   for (const scene of project.scenes) {
     unique(scene.camera.animations.map(a=>a.id),'Camera Tracks');unique(scene.camera.animations.map(a=>a.property),'Camera Track mỗi loại');for(const a of scene.camera.animations)if(a.startTime+a.duration>scene.duration+1e-8)ctx.addIssue({code:'custom',message:'Camera track vượt Scene Duration.'});
@@ -96,6 +95,7 @@ export const projectSchema = z.object({
     unique((scene.groups??[]).map(g=>g.id),'Groups');
     for(const layer of scene.layers)if(layer.groupId&&!scene.groups?.some(g=>g.id===layer.groupId))ctx.addIssue({code:'custom',message:'Group của Layer không tồn tại.'});
     for (const layer of scene.layers) if (!assets.has(layer.assetId)) ctx.addIssue({code: 'custom', message: `Layer ${layer.id}: asset không tồn tại.`});
+    for(const layer of scene.layers){let previous=0;const ids=new Set<string>();for(const frame of layer.codeFrames??[]){if(ids.has(frame.id)||frame.startFrame<previous||frame.startFrame+frame.holdFrames>Math.ceil(scene.duration*scene.fps-1e-9))ctx.addIssue({code:'custom',message:'Code Frames không được trùng/chồng đoạn hoặc vượt Scene Duration.'});ids.add(frame.id);previous=frame.startFrame+frame.holdFrames;try{checkFrameDrawing(parseFrameCode(frame.code),layer.drawing);}catch(e){ctx.addIssue({code:'custom',message:e instanceof Error?e.message:'Frame code không hợp lệ.'});}}if(layer.drawing&&scene.poseTracks.some(p=>p.layerId===layer.id))ctx.addIssue({code:'custom',message:'Vector Layer không dùng Pose ảnh; dùng Code Frames để sửa hình.'});}
     unique(scene.animations.map(a => a.id), 'Animations');
     unique(scene.animations.map(a => `${a.layerId}:${a.property}`), 'Track mỗi layer/property');
     for (const animation of scene.animations) {
@@ -161,14 +161,14 @@ export function defaultCamera(width:number,height:number):Camera{return {x:width
 
 export function createProject(): Project {
   const sceneId = crypto.randomUUID();
-  return {schemaVersion: 4, id: crypto.randomUUID(), name: 'Untitled Project', assets: [], activeSceneId: sceneId,
-    scenes: [{id: sceneId, name: 'Scene 01', width: 1920, height: 1080, fps: 30, duration: 10, background: '#ffffff', layers: [], animations: [],motionPaths:[],poseSets:[],poseTracks:[],camera:defaultCamera(1920,1080)}]};
+  return {schemaVersion: 5, id: crypto.randomUUID(), name: 'Untitled Project', assets: [], activeSceneId: sceneId,
+    scenes: [{id: sceneId, name: 'Scene 01', width: 1920, height: 1080, fps: 24, duration: 10, background: '#ffffff', layers: [], animations: [],motionPaths:[],poseSets:[],poseTracks:[],camera:defaultCamera(1920,1080)}]};
 }
 export function getScene(project: Project): Scene { return project.scenes.find(s => s.id === project.activeSceneId)!; }
 export function validateProject(value: unknown): Project {
-  if (typeof value === 'object' && value !== null && 'schemaVersion' in value && [0,1,2,3].includes(value.schemaVersion as number)) {
+  if (typeof value === 'object' && value !== null && 'schemaVersion' in value && [0,1,2,3,4].includes(value.schemaVersion as number)) {
     const legacy = value as Record<string, unknown>;
-    value = {...legacy, schemaVersion: 4, scenes: Array.isArray(legacy.scenes) ? legacy.scenes.map((scene: unknown) =>
+    value = {...legacy, schemaVersion: 5, scenes: Array.isArray(legacy.scenes) ? legacy.scenes.map((scene: unknown) =>
       typeof scene === 'object' && scene !== null ? {animations: [],motionPaths:[],poseSets:[],poseTracks:[],camera:defaultCamera(Number((scene as Record<string,unknown>).width),Number((scene as Record<string,unknown>).height)), ...scene} : scene) : legacy.scenes};
   }
   return projectSchema.parse(value);

@@ -7,6 +7,8 @@ import { ProjectRepository } from './repository.js';
 import { chooseDirectory } from './directoryPicker.js';
 import { AnimationLibraryRepository } from './animationLibraryRepository.js';
 import { ExportManager } from './exportManager.js';
+import { VectorRepository } from './vectorRepository.js';
+const vectors=new VectorRepository();
 const exports=new ExportManager();
 
 let root = path.resolve(process.env.STUDIO_PROJECTS_DIR ?? path.join(process.cwd(), 'projects'));
@@ -38,6 +40,12 @@ const server = createServer(async (request, response) => {
     if (origin && !/^http:\/\/(127\.0\.0\.1|localhost):(4310|5173)$/.test(origin)) return json(response, 403, {error: 'Origin không được phép.'});
     const url = new URL(request.url ?? '/', 'http://127.0.0.1:4310');
     const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+    if(parts[0]==='api'&&parts[1]==='vector-library'){
+      if(request.method==='GET'&&parts.length===2)return json(response,200,await vectors.list());
+      if(request.headers['x-studio-request']!=='1')return json(response,403,{error:'Thiếu request header.'});
+      if(request.method==='POST'&&parts.length===2)return json(response,200,await vectors.save(await body(request,8*1024*1024)));
+      if(request.method==='DELETE'&&parts.length===3){await vectors.remove(parts[2]);return json(response,200,{removed:true});}
+    }
     if(parts[0]==='api'&&parts[1]==='exports'){
       if(request.method==='GET'&&parts.length===2)return json(response,200,await exports.capabilities());
       if(request.method==='GET'&&parts.length===3)return json(response,200,exports.get(parts[2]).status);

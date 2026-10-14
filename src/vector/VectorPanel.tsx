@@ -1,0 +1,13 @@
+import { lazy,Suspense,useState } from 'react';
+import { getScene } from '../../shared/model.js';
+import { useEditor } from '../store/editorStore';
+import { usePlayback } from '../store/playbackStore';
+import { exportApi } from '../export/exportClient';
+import CodeFramePanel from './CodeFramePanel';
+import { changeCodeLayer } from './frameActions';
+import HelpTip from '../ui/HelpTip';
+const Convert=lazy(()=>import('./VectorConvertDialog'));
+export default function VectorPanel({layerId}:{layerId:string}){const layer=useEditor(s=>getScene(s.project).layers.find(l=>l.id===layerId)!),fps=useEditor(s=>getScene(s.project).fps),[convert,setConvert]=useState(false),[notice,setNotice]=useState(''),[name,setName]=useState(layer.name),[busy,setBusy]=useState(false);
+ async function save(){if(!layer.drawing)return;setBusy(true);setNotice('');try{await exportApi('/api/vector-library',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:1,id:crypto.randomUUID(),name,width:layer.transform.width,height:layer.transform.height,drawing:layer.drawing,codeFrames:(layer.codeFrames??[]).map(f=>({...f,...(f.visual?{visual:{...f.visual,transform:{...f.visual.transform,x:f.visual.transform.x-layer.transform.x,y:f.visual.transform.y-layer.transform.y}}}:{})})),fps})});setNotice('Đã lưu vào Vector Library, dùng được ở project khác.');}catch(e){setNotice(String(e));}finally{setBusy(false);}}
+ return <section className="vector-properties"><h3>VECTOR / FRAME-BY-FRAME <HelpTip label="Vector Layer" text="Chuyển ảnh tách sẵn thành các vùng màu/đường nét có thể chỉnh bằng code. Không cần AI, không nhận diện bộ phận. Vector không phụ thuộc ảnh gốc khi vẽ; PNG vẫn giữ trong assets để so sánh/thumbnail. Code Frames vừa dịch Layer vừa chỉnh điểm/handle bên trong."/></h3>{!layer.drawing?<button disabled={layer.locked||busy} onClick={()=>{usePlayback.getState().pause();setConvert(true);}}>Chuyển ảnh thành Vector</button>:<><p className="property-note">Vector Layer · {layer.drawing.paths.length} vùng màu</p><label className="field">Tên mẫu Vector<input aria-label="Vector Library Name" value={name} maxLength={100} onChange={e=>setName(e.target.value)}/></label><button disabled={busy||!name.trim()} onClick={()=>void save()}>Lưu vào Vector Library</button><button disabled={layer.locked} onClick={()=>{if(window.confirm('Về PNG và xóa Code Frames của Layer này? Có thể Undo.'))changeCodeLayer(layerId,{drawing:undefined,codeFrames:[]});}}>Về ảnh PNG</button></>}{notice&&<p aria-live="polite">{notice}</p>}<CodeFramePanel layerId={layerId}/>{convert&&<Suspense fallback={<p>Đang mở bộ chuyển ảnh…</p>}><Convert layerId={layerId} onClose={()=>setConvert(false)}/></Suspense>}</section>;
+}

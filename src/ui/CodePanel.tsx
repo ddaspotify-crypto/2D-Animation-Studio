@@ -19,7 +19,9 @@ self.MonacoEnvironment = {getWorker(_moduleId, label) {return label === 'javascr
 typescript.javascriptDefaults.setDiagnosticsOptions({noSemanticValidation: false, noSyntaxValidation: false});
 typescript.javascriptDefaults.addExtraLib(`
 interface SceneOptions {groups?:{id:string;name:string}[];id?: string; name?: string; width: number; height: number; fps: number; duration: number; background?: string}
-interface ImageOptions {id: string; asset: string; name?: string; x?: number; y?: number; width?: number; height?: number; scale?: number; scaleX?: number; scaleY?: number; rotation?: number; opacity?: number; visible?: boolean; locked?: boolean; anchorX?: number; anchorY?: number; zIndex?: number; flipX?: boolean; flipY?: boolean}
+interface DrawingOptions {width:number;height:number;paths:{id:string;name:string;fill:string;opacity:number;contours:{id:string;points:{id:string;x:number;y:number;in?:{x:number;y:number};out?:{x:number;y:number}}[]}[]}[]}
+interface CodeFrameOptions {id:string;startFrame:number;holdFrames:number;transition:'hold'|'interpolate';code:string}
+interface ImageOptions {drawing?:DrawingOptions;codeFrames?:CodeFrameOptions[];id: string; asset: string; name?: string; x?: number; y?: number; width?: number; height?: number; scale?: number; scaleX?: number; scaleY?: number; rotation?: number; opacity?: number; visible?: boolean; locked?: boolean; anchorX?: number; anchorY?: number; zIndex?: number; flipX?: boolean; flipY?: boolean}
 interface KeyframeOptions {id?: string; time: number; easing?: 'linear'|'easeIn'|'easeOut'|'easeInOut'; x?: number; y?: number; scaleX?: number; scaleY?: number; rotation?: number; opacity?: number;zOrder?:number}
 interface AnimationOptions {id?: string; property: 'position'|'scale'|'rotation'|'opacity'|'zOrder'; startTime?: number; duration?: number; easing?: 'linear'|'easeIn'|'easeOut'|'easeInOut'; loop?: 'none'|'repeat'|'pingPong'; keyframes: KeyframeOptions[]}
 interface PathPoint {x:number;y:number;in?:{x:number;y:number};out?:{x:number;y:number}}
@@ -30,7 +32,7 @@ interface BindingOptions {parentId:string;mode:'position'|'transform';attachment
 interface CameraOptions {x:number;y:number;zoom:number;rotation?:number}
 interface CameraTrackOptions {id:string;property:"position"|"zoom"|"rotation";startTime:number;duration:number;easing:"linear"|"easeIn"|"easeOut"|"easeInOut";loop:"none"|"repeat"|"pingPong";keyframes:{id:string;time:number;x?:number;y?:number;zoom?:number;rotation?:number;easing?:"linear"|"easeIn"|"easeOut"|"easeInOut"}[]}
 interface GroupOptions {id:string;name:string;layerIds:string[]}
-declare function createScene(options: SceneOptions): {addImage(options: ImageOptions & {attachments?:{id:string;name:string;x:number;y:number}[];skewX?:number}): void; animate(layerId: string, options: AnimationOptions): void;motionPath(layerId:string,options:MotionPathOptions):void;poseSet(options:PoseSetOptions):void;poseTrack(layerId:string,options:PoseTrackOptions):void;bind(layerId:string,options:BindingOptions):void;group(options:GroupOptions):void;camera(options:CameraOptions):void;cameraAnimate(options:CameraTrackOptions):void};
+declare function createScene(options: SceneOptions): {addVector(options:ImageOptions & {drawing:DrawingOptions}):void;addImage(options: ImageOptions & {attachments?:{id:string;name:string;x:number;y:number}[];skewX?:number}): void; animate(layerId: string, options: AnimationOptions): void;motionPath(layerId:string,options:MotionPathOptions):void;poseSet(options:PoseSetOptions):void;poseTrack(layerId:string,options:PoseTrackOptions):void;bind(layerId:string,options:BindingOptions):void;group(options:GroupOptions):void;camera(options:CameraOptions):void;cameraAnimate(options:CameraTrackOptions):void};
 `, 'studio-api.d.ts');
 
 export default function CodePanel({onClose, placement, setPlacement}: {onClose: () => void; placement: 'bottom' | 'right'; setPlacement: (placement: 'bottom' | 'right') => void}) {

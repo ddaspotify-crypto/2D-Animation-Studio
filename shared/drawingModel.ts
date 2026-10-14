@@ -1,0 +1,14 @@
+import { z } from 'zod';
+import { transformSchema } from './transformModel.js';
+const id=z.string().regex(/^[\w-]{1,100}$/),number=z.number().finite().min(-1e7).max(1e7);
+export const deltaSchema=z.object({x:number,y:number}).strict();
+export const drawingPointSchema=z.object({id,x:number,y:number,in:deltaSchema.optional(),out:deltaSchema.optional()}).strict();
+export const drawingSchema=z.object({width:z.number().positive().max(16384),height:z.number().positive().max(16384),paths:z.array(z.object({id,name:z.string().min(1).max(100),fill:z.string().regex(/^#[a-fA-F0-9]{6}$/),opacity:z.number().min(0).max(1),contours:z.array(z.object({id,points:z.array(drawingPointSchema).min(3).max(1000)}).strict()).min(1).max(100)}).strict()).min(1).max(512)}).strict().superRefine((d,c)=>{const paths=new Set<string>();let total=0;for(const p of d.paths){if(paths.has(p.id))c.addIssue({code:'custom',message:'Path ID trùng.'});paths.add(p.id);const points=new Set<string>(),contours=new Set<string>();for(const ring of p.contours){if(contours.has(ring.id))c.addIssue({code:'custom',message:'Contour ID trùng.'});contours.add(ring.id);for(const point of ring.points){total++;if(points.has(point.id))c.addIssue({code:'custom',message:'Point ID trùng trong Path.'});points.add(point.id);}}}if(total>16000)c.addIssue({code:'custom',message:'Vector tối đa 16000 điểm. Giảm mức chi tiết.'});});
+export const framePoseSchema=z.object({offset:deltaSchema.default({x:0,y:0}),rotation:number.default(0),scale:z.object({x:z.number().positive().max(100),y:z.number().positive().max(100)}).strict().default({x:1,y:1}),opacity:z.number().min(0).max(1).default(1),points:z.array(z.object({pathId:id,pointId:id,offset:deltaSchema.optional(),in:deltaSchema.optional(),out:deltaSchema.optional()}).strict()).max(16000).default([]),fills:z.array(z.object({pathId:id,color:z.string().regex(/^#[a-fA-F0-9]{6}$/)}).strict()).max(512).default([])}).strict();
+export const visualFrameSchema=z.object({transform:transformSchema,opacity:z.number().min(0).max(1),visible:z.boolean()}).strict();
+export const codeFrameSchema=z.object({id,startFrame:z.number().int().nonnegative().max(10_368_000),holdFrames:z.number().int().min(1).max(10_368_000),transition:z.enum(['hold','interpolate']),code:z.string().max(500000),visual:visualFrameSchema.optional(),batchId:id.optional()}).strict();
+export type Drawing=z.infer<typeof drawingSchema>;
+export type FramePose=z.infer<typeof framePoseSchema>;
+export type CodeFrame=z.infer<typeof codeFrameSchema>;
+export const vectorItemSchema=z.object({version:z.literal(1),id,name:z.string().trim().min(1).max(100),width:z.number().positive().max(16384),height:z.number().positive().max(16384),drawing:drawingSchema,codeFrames:z.array(codeFrameSchema).max(2000),fps:z.number().int().min(1).max(120)}).strict();
+export type VectorItem=z.infer<typeof vectorItemSchema>;

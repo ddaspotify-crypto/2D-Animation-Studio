@@ -43,18 +43,18 @@ const imageOptions = z.object({
   opacity: z.number().default(1), visible: z.boolean().default(true), locked: z.boolean().default(false),
   zIndex: z.number().int().nonnegative().optional(),
   skewX:z.number().optional(),attachments:layerSchema.shape.attachments,
-  flipX:z.boolean().optional(),flipY:z.boolean().optional(),
+  flipX:z.boolean().optional(),flipY:z.boolean().optional(),drawing:layerSchema.shape.drawing,codeFrames:layerSchema.shape.codeFrames,
 }).strict();
 
 export function generateCode(project: Project): string {
   const scene = getScene(project);
   const {layers, animations,motionPaths,poseSets,poseTracks,groups,camera, ...options} = scene;
-  const lines = ['// Phase 4: Scene đang mở. Pose time toàn scene; animation/key time tính từ startTime.', `const scene = createScene(${JSON.stringify({...options,...(groups?.length===0?{groups:[]}: {})}, null, 2)});`];
+  const lines = ['// Scene đang mở: Vector + Code Frames. Pose time toàn scene; animation/key time tính từ startTime. Code Frames dùng chỉ số frame theo FPS.', `const scene = createScene(${JSON.stringify({...options,...(groups?.length===0?{groups:[]}: {})}, null, 2)});`];
   for (const layer of layers) {
     const asset = project.assets.find(a => a.id === layer.assetId)!;
     const {scaleX, scaleY, ...transform} = layer.transform;
-    lines.push(`scene.addImage(${JSON.stringify({id: layer.id, name: layer.name, asset: asset.path, ...transform,
-      ...(scaleX === scaleY ? {scale: scaleX} : {scaleX, scaleY}), opacity: layer.opacity, visible: layer.visible, locked: layer.locked,...(layer.attachments?{attachments:layer.attachments}:{})}, null, 2)});`);
+    lines.push(`scene.${layer.drawing?'addVector':'addImage'}(${JSON.stringify({id: layer.id, name: layer.name, asset: asset.path, ...transform,
+      ...(scaleX === scaleY ? {scale: scaleX} : {scaleX, scaleY}), opacity: layer.opacity, visible: layer.visible, locked: layer.locked,...(layer.drawing?{drawing:layer.drawing}:{}),...(layer.codeFrames?{codeFrames:layer.codeFrames}:{}),...(layer.attachments?{attachments:layer.attachments}:{})}, null, 2)});`);
   }
   for(const path of motionPaths){const {layerId,...options}=path;lines.push(`scene.motionPath(${JSON.stringify(layerId)}, ${JSON.stringify(options,null,2)});`);}
   for(const group of groups??[])lines.push(`scene.group(${JSON.stringify({...group,layerIds:layers.filter(l=>l.groupId===group.id).map(l=>l.id)},null,2)});`);
@@ -70,7 +70,7 @@ export function generateCode(project: Project): string {
 }
 
 export function parseSceneCode(source: string, project: Project): Scene {
-  if (source.length > 2_000_000) throw new Error('Code quá lớn (tối đa 2 MB).');
+  if (source.length > 8_000_000) throw new Error('Code quá lớn (tối đa 8 MB).');
   const program = ast(parse(source, {ecmaVersion: 'latest', sourceType: 'script', locations: true}));
   const body = program.body as unknown[];
   if (!body.length) throw new Error('Cần khai báo const scene = createScene({...}).');
@@ -128,14 +128,14 @@ export function parseSceneCode(source: string, project: Project): Scene {
         keyframes: config.keyframes.map((key, i) => ({...key, id: key.id ?? `key-${index}-${i}`}))});
       continue;
     }
-    if (method !== 'addImage') fail(n, 'Phase 3 chỉ hỗ trợ addImage/animate/motionPath/poseSet/poseTrack/bind/group; camera thuộc Phase 4.');
+    if (method !== 'addImage' && method !== 'addVector') fail(n, 'Phase 3 chỉ hỗ trợ addImage/animate/motionPath/poseSet/poseTrack/bind/group; camera thuộc Phase 4.');
     if (parameters.length !== 1) fail(call, 'addImage nhận một object literal.');
-    const config = imageOptions.parse(literal(parameters[0]));
+    const config = imageOptions.parse(literal(parameters[0]));if(method==='addVector'&&!config.drawing)fail(n,'addVector cần dữ liệu drawing.');
     const asset = project.assets.find(a => a.path === config.asset);
     if (!asset) fail(n, `Asset chưa import: ${config.asset}`);
     if (config.scale !== undefined && (config.scaleX !== undefined || config.scaleY !== undefined)) fail(n, 'Dùng scale hoặc scaleX/scaleY, không dùng đồng thời.');
     ordering.push(config.zIndex ?? scene.layers.length);
-    scene.layers.push({id: config.id, name: config.name ?? asset.name, assetId: asset.id, opacity: config.opacity, visible: config.visible, locked: config.locked,...(config.attachments?{attachments:config.attachments}:{}),
+    scene.layers.push({id: config.id, name: config.name ?? asset.name, assetId: asset.id, opacity: config.opacity, visible: config.visible, locked: config.locked,...(config.drawing?{drawing:config.drawing}:{}),...(config.codeFrames?{codeFrames:config.codeFrames}:{}),...(config.attachments?{attachments:config.attachments}:{}),
       transform: {x: config.x, y: config.y, width: config.width ?? asset.width, height: config.height ?? asset.height, scaleX: config.scaleX ?? config.scale ?? 1, scaleY: config.scaleY ?? config.scale ?? 1, rotation: config.rotation, anchorX: config.anchorX, anchorY: config.anchorY,...(config.skewX!==undefined?{skewX:config.skewX}:{}),...(config.flipX!==undefined?{flipX:config.flipX}:{}),...(config.flipY!==undefined?{flipY:config.flipY}:{})}});
   }
   if(new Set(bindings.map(b=>b.layerId)).size!==bindings.length)throw new Error('Mỗi Child chỉ có một binding.');

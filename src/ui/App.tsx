@@ -19,9 +19,11 @@ import SceneTabs from './SceneTabs';
 import RecoveryControl from '../recovery/RecoveryControl';
 import LayerContextMenu from './LayerContextMenu';
 import ShortcutHelp from './ShortcutHelp';
+import { currentFrameDrafts,useVectorEditor } from '../vector/vectorStore';
 const CodePanel = lazy(() => import('./CodePanel'));
 const AnimationLibraryPanel=lazy(()=>import('../library/AnimationLibraryPanel'));
 const ExportDialog=lazy(()=>import('../export/ExportDialog'));
+const VectorLibrary=lazy(()=>import('../vector/VectorLibrary'));
 
 interface ProjectList {root: string; projects: string[]; nativePicker?: boolean; changed?: boolean}
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -33,12 +35,13 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 export default function App() {
   const project = useEditor(s => s.project), revision = useEditor(s => s.revision), savedRevision = useEditor(s => s.savedRevision);
   const codeDirty = useEditor(s => s.codeDirty), location = useEditor(s => s.location);
-  const drafts=useEditor(s=>s.drafts),hasCodeDraft=codeDirty||project.scenes.some(s=>!!drafts[s.id]);
+  const drafts=useEditor(s=>s.drafts),frameDrafts=useVectorEditor(s=>s.drafts),hasCodeDraft=codeDirty||project.scenes.some(s=>!!drafts[s.id])||project.scenes.some(s=>s.layers.some(l=>l.codeFrames?.some(f=>Object.hasOwn(frameDrafts,f.id))));
   const animationError = useEditor(s => s.animationError);
   const canUndo = useEditor(s => !!s.past.length), canRedo = useEditor(s => !!s.future.length);
   const [showCode, setShowCode] = useState(true), [placement, setPlacement] = useState<'bottom' | 'right'>('bottom');
   const [showLibrary,setShowLibrary]=useState(false);
   const [showExport,setShowExport]=useState(false);
+  const [showVectors,setShowVectors]=useState(false);
   const closeLibrary=useCallback(()=>setShowLibrary(false),[]);
   const [busy, setBusy] = useState(false), [status, setStatus] = useState('Sẵn sàng'), [error, setError] = useState('');
   const [dialog, setDialog] = useState<'save' | 'saveAs' | 'open' | null>(null);
@@ -64,16 +67,18 @@ export default function App() {
       const assets = await assetUploads(snapshot.project.assets);
       await api('/api/projects', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Studio-Request': '1'}, body: JSON.stringify({name, project: snapshot.project, assets, saveAs})});
       useEditor.getState().markSaved(snapshot.revision, name);
-      setDialog(null); setStatus(`Đã lưu: ${name}/project.json${snapshot.codeDirty||snapshot.project.scenes.some(s=>!!snapshot.drafts[s.id]) ? ' · Code chưa Apply không được lưu' : ''}`);
+      setDialog(null); setStatus(`Đã lưu: ${name}/project.json${snapshot.codeDirty||snapshot.project.scenes.some(s=>!!snapshot.drafts[s.id])||Object.keys(currentFrameDrafts(snapshot.project)).length ? ' · Code chưa Apply không được lưu' : ''}`);
       await refreshList();
     } catch (error) {setError(error instanceof Error ? error.message : 'Không lưu được project.'); setStatus('Lưu thất bại');}
     finally {setBusy(false);}
   }, [busy, refreshList]);
   const requestSave = useCallback((saveAs = false) => {
     if (busy) return;
+    const active=document.activeElement;if(active instanceof HTMLInputElement&&active.closest('.properties-panel'))active.blur();
     if (location && !saveAs) void save(location, false);
     else {setFolderName(project.name === 'Untitled Project' ? 'My Animation' : project.name.replace(/[^\p{L}\p{N}_ -]/gu, '')); setDialog(saveAs ? 'saveAs' : 'save'); void refreshList();}
   }, [busy, location, project.name, refreshList, save]);
+  useEffect(()=>{const saveFrame=()=>requestSave();window.addEventListener('studio-save-frame',saveFrame);return()=>window.removeEventListener('studio-save-frame',saveFrame);},[requestSave]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if(showLibrary||showExport||document.querySelector('[role="dialog"]'))return;
@@ -136,7 +141,7 @@ export default function App() {
   }
   return <LayerContextMenu><div className="studio" onPointerDownCapture={e=>{const t=e.target as HTMLElement;useWorkspace.setState({area:t.closest('.timeline-panel')?'timeline':t.closest('.asset-panel')?'assets':t.closest('.layers-panel,.canvas-column')?'layers':useWorkspace.getState().area});}}>
     <header className="topbar">
-      <div className="brand"><div className="brand-icon"><Aperture size={23}/></div><div><strong>2D Animation Studio</strong><small>LOCAL ANIMATION STUDIO <b>PHASE 6</b></small></div></div>
+      <div className="brand"><div className="brand-icon"><Aperture size={23}/></div><div><strong>2D Animation Studio</strong><small>VECTOR & CODE FRAMES <b>0.7</b></small></div></div>
       <div className="top-actions">
         <button disabled={busy} title="New Project" onClick={() => {if (safeToReplace()) {clearAssets(); useEditor.getState().replace(createProject()); setError(''); setStatus('Project mới');}}}><FilePlus2 size={16}/><span>New</span></button>
         <button disabled={busy} title="Open Project" onClick={() => {setChosen(''); setDialog('open'); void refreshList();}}><FolderOpen size={16}/><span>Open</span></button>
@@ -149,6 +154,7 @@ export default function App() {
       <button className={showCode ? 'code-toggle active' : 'code-toggle'} title="Show / Hide Code" onClick={() => setShowCode(!showCode)}><Code2 size={17}/>Code</button>
       <button title="Animation Library" disabled={busy} onClick={()=>{usePlayback.getState().pause();setShowLibrary(true);}}>Animation Library</button>
       <button title="Export MP4" disabled={busy} onClick={()=>{usePlayback.getState().pause();setShowExport(true);}}>Export MP4</button>
+      <button title="Vector Library" disabled={busy} onClick={()=>{usePlayback.getState().pause();setShowVectors(true);}}>Vector Library</button>
     </header>
     {error && <div role="alert" className="error-banner"><span>{error}</span><button title="Đóng thông báo" onClick={() => setError('')}><X size={16}/></button></div>}
     {animationError && <div role="alert" className="error-banner"><span>{animationError}</span><button title="Đóng lỗi animation" onClick={() => useEditor.setState({animationError: ''})}><X size={16}/></button></div>}
@@ -173,5 +179,6 @@ export default function App() {
     </div></div>}
     {showLibrary&&<Suspense fallback={<div className="modal-overlay"><p>Đang mở Animation Library…</p></div>}><AnimationLibraryPanel onClose={closeLibrary}/></Suspense>}
     {showExport&&<Suspense fallback={<div className="modal-overlay"><p>Đang mở Export…</p></div>}><ExportDialog onClose={()=>setShowExport(false)}/></Suspense>}
+    {showVectors&&<Suspense fallback={<div className="modal-overlay"><p>Đang mở Vector Library…</p></div>}><VectorLibrary onClose={()=>setShowVectors(false)}/></Suspense>}
   </div></LayerContextMenu>;
 }

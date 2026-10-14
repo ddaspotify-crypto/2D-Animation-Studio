@@ -1,6 +1,8 @@
 import { evaluateSceneAtTime, layerValues, localAnimationTime, propertyKeys } from '../../shared/animationEngine.js';
+import { sampleCodeFrames } from '../../shared/frameCode.js';
 import type { Animation, AnimationProperty, Keyframe, Layer, Scene } from '../../shared/model.js';
 import { bindingSpace, decompose, inverse, matrixFromTransform, multiply } from '../../shared/transforms.js';
+function underlyingValues(values:Partial<Keyframe>,layer:Layer,property:AnimationProperty,time:number,fps:number){const pose=sampleCodeFrames(layer.codeFrames,time,fps),v={...values};if(property==='position'){v.x!-=pose.offset.x;v.y!-=pose.offset.y;}if(property==='rotation')v.rotation!-=pose.rotation;if(property==='scale'){v.scaleX!/=pose.scale.x;v.scaleY!/=pose.scale.y;}if(property==='opacity'&&pose.opacity>0)v.opacity!/=pose.opacity;return v;}
 
 /** Data-only starter presets; React only dispatches the selected preset. */
 export function createAnimationPreset(scene: Scene, layerId: string, property: AnimationProperty, startTime: number): Animation {
@@ -8,7 +10,7 @@ export function createAnimationPreset(scene: Scene, layerId: string, property: A
   const layer = evaluateSceneAtTime(scene, startTime).layers.find(l => l.id === layerId);
   if (!layer) throw new Error('Layer không tồn tại.');
   const duration = Math.min(2, scene.duration-startTime);
-  const values = layerValues({...layer,transform:layer.localTransform??layer.transform}, property), end = {...values};
+  const values = underlyingValues(layerValues({...layer,transform:layer.localTransform??layer.transform}, property),layer,property,startTime,scene.fps), end = {...values};
   if (property === 'position') end.x = Math.min(1e7, values.x!+300);
   if (property === 'scale') {end.scaleX = Math.min(100, values.scaleX!*1.5); end.scaleY = Math.min(100, values.scaleY!*1.5);}
   if (property === 'rotation') end.rotation = Math.min(1e7, values.rotation!+90);
@@ -24,7 +26,7 @@ export function upsertKeyframe(scene: Scene, layerId: string, property: Animatio
   const atTime = Math.max(0, Math.min(scene.duration, sceneTime));
   const world = evaluateSceneAtTime(scene, atTime).layers.find(l => l.id === layerId)!;
   const current={...world,transform:world.localTransform??world.transform};
-  const evaluated = layerValues(current, property);
+  const evaluated = underlyingValues(layerValues(current, property),layer,property,atTime,scene.fps);
   const fields: Partial<Keyframe> = {};
   for (const key of propertyKeys[property]) fields[key] = values?.[key] ?? evaluated[key];
   const existing = scene.animations.find(a => a.layerId === layerId && a.property === property);
@@ -61,6 +63,11 @@ export function applyLayerEdits(scene: Scene, edits: {id: string; patch: Partial
       const values = layerValues(next, property), previous = layerValues(current, property);
       if (!keys.some(key => values[key] !== previous[key])) continue;
       if (base.locked) continue;
+      const pose=sampleCodeFrames(base.codeFrames,time,scene.fps);
+      if(property==='position'){values.x!-=pose.offset.x;values.y!-=pose.offset.y;}
+      if(property==='rotation')values.rotation!-=pose.rotation;
+      if(property==='scale'){values.scaleX!/=pose.scale.x;values.scaleY!/=pose.scale.y;}
+      if(property==='opacity'&&pose.opacity>0)values.opacity!/=pose.opacity;
       if (autoKey) result = upsertKeyframe(result, id, property, time, values);
       else for (const key of keys) {if (key === 'opacity') opacity = values[key]!; else if(key!=='zOrder')transform[key] = values[key]!;}
     }

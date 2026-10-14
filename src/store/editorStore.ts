@@ -10,6 +10,8 @@ import { cloneLayers } from '../advanced/cloneLayers';
 import { newScene,duplicateScene } from '../scene/sceneCommands';
 import { useTimeline } from './timelineStore';
 import { useCameraView } from './cameraViewStore';
+import { useVectorEditor } from '../vector/vectorStore';
+import { editVisualFrame } from '../../shared/visualFrames.js';
 
 interface EditorState {
   project: Project; selectedIds: string[]; past: Project[]; future: Project[];
@@ -61,6 +63,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
   replace(project, location) {
     const valid = validateProject(project);
+    useVectorEditor.setState({drafts:{},pathId:null,pointId:null,showPoints:false,onion:false});
     usePlayback.getState().stop(); usePlayback.getState().configure(getScene(valid).duration);
     usePathEditor.setState({drawLayerId:null,pointIndex:0});
     useCameraView.setState({output:false,edit:false});
@@ -171,8 +174,12 @@ export const useEditor = create<EditorState>((set, get) => ({
   markSaved(revision, location) { set({savedRevision: revision, location}); },
   setAutoKey(enabled) {set({autoKey: enabled});},
   editLayers(edits) {
-    const current = get(); const scene = applyLayerEdits(getScene(current.project), edits, usePlayback.getState().time, current.autoKey);
-    current.commit({...current.project, scenes: [scene]});
+    const current=get(),selection=useTimeline.getState(),time=usePlayback.getState().time;
+    try{const visual=selection.kind==='code'&&selection.animationId&&selection.frameId?editVisualFrame(getScene(current.project),selection.animationId,selection.frameId,edits,time):null;
+    const metadata=edits.map(({id,patch})=>{const {transform,opacity,visible,...rest}=patch;return {id,patch:rest};});
+    const scene=visual?applyLayerEdits(visual,metadata,time,false):applyLayerEdits(getScene(current.project),edits,time,current.autoKey);
+    current.commit({...current.project,scenes:[scene]});
+    }catch(error){set({animationError:error instanceof Error?error.message:'Không sửa được tư thế frame.'});}
   },
   addKeyframe(layerId, property) {
     const current = get(); const scene = upsertKeyframe(getScene(current.project), layerId, property, usePlayback.getState().time);
