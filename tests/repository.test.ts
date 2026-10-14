@@ -15,6 +15,8 @@ afterEach(async () => {
   await fs.rm(target, {recursive: true, force: true});
 });
 describe('Project local persistence', () => {
+  it('retains previous valid manifest and lists corrupted projects with recoverable backup',async()=>{const p=createProject();await repository.save('Recovery',p,[],true);const next={...p,name:'Edited'};await repository.save('Recovery',next,[],false);expect(await repository.loadBackup('Recovery')).toEqual(p);await fs.writeFile(path.join(root,'Recovery','project.json'),'broken');await expect(repository.load('Recovery')).rejects.toThrow();expect(await repository.list()).toEqual(['Recovery']);expect(await repository.loadBackup('Recovery')).toEqual(p);await repository.save('Recovered copy',await repository.loadBackup('Recovery'),[],true);expect(await repository.load('Recovered copy')).toEqual(p);});
+  it('does not replace the last valid backup on failed validation or asset writes',async()=>{const p=createProject();await repository.save('Recovery',p,[],true);await repository.save('Recovery',{...p,name:'Second'},[],false);await expect(repository.save('Recovery',{...p,schemaVersion:999},[],false)).rejects.toThrow();expect(await repository.loadBackup('Recovery')).toEqual(p);expect((await repository.load('Recovery')).name).toBe('Second');});
   it('saves, loads and deduplicates stable asset paths; supports Save As', async () => {
     const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
     const hash = createHash('sha256').update(bytes).digest('hex'), assetPath = `assets/${hash}.png`;

@@ -32,7 +32,7 @@ export class ProjectRepository {
     const projects: string[] = [];
     for (const item of entries) {
       if (!item.isDirectory() || item.isSymbolicLink()) continue;
-      try { await this.load(item.name); projects.push(item.name); } catch { /* Malformed/unrelated folders are not projects. */ }
+      try { await this.load(item.name); projects.push(item.name); } catch {try{await this.loadBackup(item.name);projects.push(item.name);}catch{ /* Malformed/unrelated folders are not projects. */ }}
     }
     return projects.sort();
   }
@@ -40,14 +40,17 @@ export class ProjectRepository {
     const folder = await this.folder(name);
     return validateProject(JSON.parse(await fs.readFile(await this.safeFile(folder, 'project.json'), 'utf8')));
   }
+  async loadBackup(name:string):Promise<Project>{const folder=await this.folder(name);try{return validateProject(JSON.parse(await fs.readFile(await this.safeFile(folder,'project.backup.json'),'utf8')));}catch(e){if(e instanceof Error&&'code'in e&&e.code==='ENOENT')throw Error('Chưa có bản sao lưu cho project này. Bản sao được tạo từ lần Save thứ hai; có thể thử Khôi phục tự lưu.');throw e;}}
   async save(name: string, value: unknown, uploads: AssetUpload[], saveAs: boolean): Promise<void> {
     const project = validateProject(value);
     const folder = await this.folder(name, true);
     const manifest = await this.safeFile(folder, 'project.json');
     const entries = await fs.readdir(folder);
+    let previous:Project|undefined;
     if (entries.length) {
       if (saveAs) throw new Error('Save As cần thư mục mới; tên này đã tồn tại.');
       const existing = await this.load(name);
+      previous=existing;
       if (existing.id !== project.id) throw new Error('Thư mục đang chứa project khác. Hãy dùng Save As với tên mới.');
     }
     const assetsFolder = await this.safeFile(folder, 'assets');
@@ -72,6 +75,7 @@ export class ProjectRepository {
       }
     }
     // Immutable content-addressed assets first, then atomically replace the manifest.
+    if(previous){const backup=await this.safeFile(folder,'project.backup.json'),temp=await this.safeFile(folder,`backup-${randomUUID()}.tmp`);try{await fs.writeFile(temp,JSON.stringify(previous,null,2),{flag:'wx'});await fs.rename(temp,backup);}finally{await fs.unlink(temp).catch(()=>undefined);}}
     const temporary = await this.safeFile(folder, `project-${randomUUID()}.tmp`);
     try {
       await fs.writeFile(temporary, JSON.stringify(project, null, 2), {flag: 'wx'});

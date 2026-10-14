@@ -5,3 +5,8 @@ projects/
 Animation Library/
 .vite/
 test-results/
+exports/
+tools/*.exe
+tools/*.zip
+tools/*.sha256
+tools/FFMPEG-LICENSE.txt

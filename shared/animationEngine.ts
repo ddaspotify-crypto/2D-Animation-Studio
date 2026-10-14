@@ -1,4 +1,4 @@
-import type { Animation, AnimationProperty, Easing, Keyframe, Layer, Scene, Transform } from './model.js';
+import type { Animation, AnimationProperty, Easing, Keyframe, Layer, Scene, Transform,PoseTrack } from './model.js';
 import { bindingSpace, decompose, matrixFromTransform, multiply, transformPoint } from './transforms.js';
 import { samplePath } from './motionPaths.js';
 
@@ -44,11 +44,13 @@ export function evaluateSceneAtTime(scene: Scene, time: number): {layers: Evalua
   const t = Math.max(0, Math.min(scene.duration, Number.isFinite(time) ? time : 0));
   const tracks = new Map<string, Animation[]>();
   for (const animation of scene.animations) {const existing = tracks.get(animation.layerId) ?? []; existing.push(animation); tracks.set(animation.layerId, existing);}
+  const poseTracks=new Map(scene.poseTracks.map(p=>[p.layerId,p])),paths=new Map(scene.motionPaths.map(p=>[p.layerId,p])),poseSets=new Map(scene.poseSets.map(p=>[p.id,new Map(p.poses.map(pose=>[pose.id,pose]))]));
   const localLayers = scene.layers.map((layer,index) => {
     const result:EvaluatedLayer = {...layer,zOrder:index, transform: {...layer.transform}};
-    const poseTrack=scene.poseTracks.find(p=>p.layerId===layer.id);
-    const poseKey=poseTrack?.keyframes.filter(k=>k.time<=t).at(-1);
-    const pose=poseKey&&scene.poseSets.find(p=>p.id===poseTrack!.poseSetId)?.poses.find(p=>p.id===poseKey.poseId);
+    const poseTrack=poseTracks.get(layer.id),keys=poseTrack?.keyframes;
+    let poseKey:PoseTrack['keyframes'][number]|undefined;
+    if(keys?.length&&keys[0].time<=t){let low=0,high=keys.length;while(high-low>1){const mid=(low+high)>>>1;if(keys[mid].time<=t)low=mid;else high=mid;}poseKey=keys[low];}
+    const pose=poseKey&&poseSets.get(poseTrack!.poseSetId)?.get(poseKey.poseId);
     if(pose){result.assetId=pose.assetId;result.transform={...result.transform,width:pose.width,height:pose.height,anchorX:pose.anchorX,anchorY:pose.anchorY};}
     for (const track of tracks.get(layer.id) ?? []) {
       const values = sampleAnimation(track, t); if (!values) continue;
@@ -58,7 +60,7 @@ export function evaluateSceneAtTime(scene: Scene, time: number): {layers: Evalua
         else result.transform[key] = values[key]!;
       }
     }
-    const path=scene.motionPaths.find(p=>p.layerId===layer.id),local=path&&localAnimationTime(path,t);
+    const path=paths.get(layer.id),local=path&&localAnimationTime(path,t);
     if(path && local!==undefined && local!==null){
       const u=ease(path.easing,local/path.duration),sample=samplePath(path,path.reverse?1-u:u);
       result.transform.x=sample.point.x;result.transform.y=sample.point.y;

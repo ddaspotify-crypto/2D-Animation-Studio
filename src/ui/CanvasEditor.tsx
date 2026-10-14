@@ -26,6 +26,7 @@ function ImageNode({layer,drawing}: {layer: Layer;drawing:boolean}) {
     visible={layer.visible} opacity={layer.opacity} draggable={!layer.locked&&!drawing} listening={!layer.locked&&!drawing}
     onClick={event => {event.cancelBubble = true; select(layer.id, event.evt.shiftKey);}}
     onTap={() => select(layer.id)}
+    onContextMenu={event=>{event.evt.preventDefault();if(!useEditor.getState().selectedIds.includes(layer.id))select(layer.id);}}
     onDragStart={() => {if (!useEditor.getState().selectedIds.includes(layer.id)) select(layer.id);}}
     onDragEnd={event => {
       const state = useEditor.getState();
@@ -65,15 +66,17 @@ export default function CanvasEditor({busy, onDropFiles}: {busy: boolean; onDrop
     let active=true;
     const nodes = new Map(scene.layers.map(layer => [layer.id, stage.current?.findOne(`#${layer.id}`)]));
     const images=new Map<string,HTMLImageElement>();
+    let lastOrder='';
     const render = () => {
       if (editing.current||output) return;
-      for (const layer of evaluateSceneAtTime(scene, usePlayback.getState().time).layers) {
+      const evaluated=evaluateSceneAtTime(scene, usePlayback.getState().time).layers,order=JSON.stringify(evaluated.map(l=>l.id)),reorder=order!==lastOrder;
+      for (const layer of evaluated) {
         const t = layer.transform;
         const node=nodes.get(layer.id);
         node?.setAttrs({x:t.x,y:t.y,width:t.width,height:t.height,offsetX:t.anchorX*t.width,offsetY:t.anchorY*t.height,skewX:t.skewX??0,scaleX:t.scaleX*(t.flipX?-1:1),scaleY:t.scaleY*(t.flipY?-1:1),rotation:t.rotation,opacity:layer.opacity,image:images.get(layer.assetId)});
-        node?.moveToTop();
+        if(reorder)node?.moveToTop();
       }
-      transformer.current?.moveToTop();transformer.current?.forceUpdate(); stage.current?.batchDraw();
+      lastOrder=order;transformer.current?.moveToTop();transformer.current?.forceUpdate(); stage.current?.batchDraw();
     };
     render();
     Promise.all(project.assets.map(async asset=>{try{const image=await loadImage(asset.path);if(active)images.set(asset.id,image);}catch{}})).then(()=>{if(active)render();});

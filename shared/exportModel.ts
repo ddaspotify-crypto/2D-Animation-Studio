@@ -1,0 +1,7 @@
+import { z } from 'zod';
+export const exportSettingsSchema=z.object({sceneId:z.string().min(1),width:z.number().int().min(2).max(4096),height:z.number().int().min(2).max(4096),fps:z.number().int().min(1).max(120),quality:z.enum(['high','balanced','small']),filename:z.string().regex(/^[\p{L}\p{N}_ -]{1,100}\.mp4$/u),directoryToken:z.string().optional()}).strict().superRefine((s,ctx)=>{if(s.width%2||s.height%2)ctx.addIssue({code:'custom',message:'MP4 H.264 cần chiều rộng/cao là số chẵn.'});if(/^(con|prn|aux|nul|com[0-9]|lpt[0-9])\.mp4$/i.test(s.filename))ctx.addIssue({code:'custom',message:'Tên file dành riêng cho Windows.'});});
+export type ExportSettings=z.infer<typeof exportSettingsSchema>;
+export type ExportStatus={id:string;state:'rendering'|'encoding'|'completed'|'cancelled'|'error';framesRendered:number;framesEncoded:number;totalFrames:number;outputPath:string;error:string};
+export function frameCount(duration:number,fps:number){return Math.max(1,Math.ceil(duration*fps-1e-9));}
+export function frameTime(index:number,fps:number){return index/fps;}
+export function ffmpegArgs(s:ExportSettings,temporary:string){return ['-hide_banner','-loglevel','error','-f','image2pipe','-vcodec','png','-framerate',String(s.fps),'-i','pipe:0','-an','-c:v','libx264','-preset','medium','-crf',s.quality==='high'?'18':s.quality==='small'?'28':'23','-pix_fmt','yuv420p','-movflags','+faststart','-progress','pipe:1','-nostats','-n',temporary];}

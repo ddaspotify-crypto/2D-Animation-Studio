@@ -9,7 +9,7 @@ export default function GroupLayersPanel() {
   const state=useEditor(),scene=getScene(state.project),layers=scene.layers;
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
   const active=layers.find(l=>l.id===state.selectedIds[0]),index=active?layers.indexOf(active):-1;
-  const row=(layer:Layer)=><div key={layer.id} tabIndex={0} className={`layer-row ${state.selectedIds.includes(layer.id)?'selected':''}`} draggable
+  const row=(layer:Layer)=><div key={layer.id} data-layer-id={layer.id} tabIndex={0} className={`layer-row ${state.selectedIds.includes(layer.id)?'selected':''}`} draggable
     onDragStart={e=>e.dataTransfer.setData('application/x-studio-layer',layer.id)} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('application/x-studio-layer');if(id)state.reorder(id,layers.indexOf(layer));}}
     onClick={e=>state.select(layer.id,e.shiftKey)} onKeyDown={e=>{if(e.key==='Enter')state.select(layer.id,e.shiftKey);}}>
     <GripVertical size={12}/><img alt="" src={assetUrl(state.project.assets.find(a=>a.id===layer.assetId)!.path)}/><span title={layer.name}>{layer.name}</span>
@@ -27,7 +27,7 @@ export default function GroupLayersPanel() {
     <div className="layers-scroll">{[...layers].reverse().map(layer=>{
       const group=scene.groups?.find(g=>g.id===layer.groupId);if(!group)return row(layer);if(seen.has(group.id))return null;seen.add(group.id);
       return <div className="layer-group" key={group.id}>
-        <div className={`group-row ${state.selectedGroupId===group.id?'selected':''}`} tabIndex={0} onClick={()=>state.selectGroup(group.id)} onKeyDown={e=>{if(e.key==='Enter')state.selectGroup(group.id);}}>
+        <div data-group-id={group.id} className={`group-row ${state.selectedGroupId===group.id?'selected':''}`} tabIndex={0} onClick={()=>state.selectGroup(group.id)} onKeyDown={e=>{if(e.key==='Enter')state.selectGroup(group.id);}}>
           <button title="Thu gọn / mở Group" onClick={e=>{e.stopPropagation();setCollapsed(prev=>{const next=new Set(prev);if(next.has(group.id))next.delete(group.id);else next.add(group.id);return next;});}}>{collapsed.has(group.id)?<ChevronRight size={13}/>:<ChevronDown size={13}/>}</button><Folder size={14}/>
           <input aria-label={`Tên Group ${group.id}`} title="Sửa tên Group" key={group.name} defaultValue={group.name} maxLength={100} onFocus={()=>state.selectGroup(group.id)} onBlur={e=>state.renameGroup(group.id,e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==='Enter')e.currentTarget.blur();}}/>
           <button title="Duplicate Group" onClick={e=>{e.stopPropagation();state.selectGroup(group.id);state.duplicate();}}><Copy size={13}/></button><button title="Ungroup · Bỏ nhóm" onClick={e=>{e.stopPropagation();state.ungroup(group.id);}}>↗</button>

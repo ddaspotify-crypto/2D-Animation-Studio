@@ -1,4 +1,4 @@
-# 2D Animation Studio — Phase 4
+# 2D Animation Studio — Phase 6 (local)
 
 Ứng dụng local trên Windows: bố trí và tạo animation qua Canvas/Timeline hoặc JavaScript khai báo. Đọc [ARCHITECTURE.md](ARCHITECTURE.md) để xem kiến trúc và phân bổ toàn bộ yêu cầu của hai tài liệu theo từng phase.
 
@@ -8,7 +8,11 @@
 
 ## Chạy ứng dụng
 
-**Review Phase 4:** [PHASE4_REVIEW.md](PHASE4_REVIEW.md) — nhiều scenes, Output Camera/Pan/Zoom/keyframes, Camera Preview, Code Editor và Undo/Redo; project schema v4. MP4 tiếp tục ở Phase 5.
+**Review Phase 4:** [PHASE4_REVIEW.md](PHASE4_REVIEW.md) — nhiều scenes, Output Camera/Pan/Zoom/Rotation/keyframes, Camera Preview, Code Editor và Undo/Redo; project schema v4.
+
+**Review Phase 5:** [PHASE5_REVIEW.md](PHASE5_REVIEW.md) — Export MP4 H.264, chọn Scene/resolution/FPS/quality/thư mục, tiến độ/hủy và cách cài FFmpeg. Bản local hiện tại đã có FFmpeg ở tools/. Khi clone repo trên máy khác, chạy `powershell -ExecutionPolicy Bypass -File scripts/install-ffmpeg.ps1` hoặc đặt executable theo hướng dẫn. Binary FFmpeg và video xuất không đưa vào Git.
+
+**Review Phase 6:** [PHASE6_REVIEW.md](PHASE6_REVIEW.md) — tối ưu engine/renderer, phím tắt đầy đủ, menu Canvas/Layer/Group, autosave ảnh/code và khôi phục project hỏng. Bản 0.6.0 chạy localhost; Electron Packaging và Windows Installer được bỏ qua theo yêu cầu.
 
 **Animation Library:** [ANIMATION_LIBRARY_GUIDE.md](ANIMATION_LIBRARY_GUIDE.md) — 14 presets, lưu chuyển động Layer/Group/Path/Pose, Preview/Apply, thư viện dùng chung và Import/Export mẫu.
 

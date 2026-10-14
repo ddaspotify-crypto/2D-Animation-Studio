@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process';
 
 /** Desktop adapter: only a human-selected directory can become an allowed filesystem root. */
-export function chooseDirectory(initialPath: string): Promise<string | null> {
+export function chooseDirectory(initialPath: string,description='Chọn thư mục chứa các project của 2D Animation Studio'): Promise<string | null> {
   if (process.platform !== 'win32') throw new Error('Chọn thư mục bằng hộp thoại chỉ hỗ trợ Windows. Dùng STUDIO_PROJECTS_DIR trên hệ điều hành khác.');
   const script = `
 Add-Type -AssemblyName System.Windows.Forms
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = 'Chọn thư mục chứa các project của 2D Animation Studio'
+$dialog.Description = $env:STUDIO_PICKER_DESCRIPTION
 $dialog.SelectedPath = $env:STUDIO_PICKER_INITIAL
 $dialog.ShowNewFolderButton = $true
 if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Write($dialog.SelectedPath) }
@@ -15,7 +15,7 @@ $dialog.Dispose()
 `;
   return new Promise((resolve, reject) => {
     const child = spawn('powershell.exe', ['-NoProfile', '-STA', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
-      windowsHide: true, env: {...process.env, STUDIO_PICKER_INITIAL: initialPath}, stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true, env: {...process.env, STUDIO_PICKER_INITIAL: initialPath, STUDIO_PICKER_DESCRIPTION:description}, stdio: ['ignore', 'pipe', 'pipe'],
     });
     let output = '', errors = '';
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => {output += chunk;});

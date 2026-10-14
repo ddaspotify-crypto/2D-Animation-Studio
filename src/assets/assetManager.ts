@@ -3,6 +3,7 @@ import type { Asset } from '../../shared/model.js';
 const blobs = new Map<string, Blob>();
 const urls = new Map<string, string>();
 const images = new Map<string, Promise<HTMLImageElement>>();
+export function assetBlobs(assets:Asset[]){return assets.map(asset=>{const blob=blobs.get(asset.path);if(!blob)throw Error(`Thiếu dữ liệu ảnh: ${asset.name}`);return {path:asset.path,blob};});}
 let generation = 0;
 export function assetUrl(path: string): string { return urls.get(path) ?? ''; }
 export function clearAssets() {
@@ -67,10 +68,10 @@ export async function assetUploads(assets: Asset[]): Promise<{path: string; base
   }
   return uploads;
 }
-export async function fetchAssets(assets: Asset[], folder: string): Promise<{asset: Asset; blob: Blob}[]> {
+export async function fetchAssets(assets: Asset[], folder: string,backup=false): Promise<{asset: Asset; blob: Blob}[]> {
   const result = [];
   for (const asset of assets) {
-    const response = await fetch(`/api/assets/${encodeURIComponent(folder)}/${asset.path.slice(7)}`);
+    const response = await fetch(`/api/assets/${encodeURIComponent(folder)}/${asset.path.slice(7)}${backup?'?backup=1':''}`);
     if (!response.ok) throw new Error(`Thiếu hoặc hỏng ảnh ${asset.name}; giữ nguyên project đang mở.`);
     const blob = await response.blob();
     const bitmap = await createImageBitmap(blob); bitmap.close();
